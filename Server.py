@@ -13,6 +13,7 @@ def server_program():
     #    '''
     catalog = CatalogController()
     # get the hostname
+    currentDatabase=""
     host = socket.gethostname()
     port = 5000  # initiate port no above 1024
     server_socket = socket.socket()  # get instance
@@ -34,28 +35,34 @@ def server_program():
         # parse data:
         y = json.loads(data)
 
-
+        if y["command"] == 0:
+            answer ="Using "+ y["databaseName"]
+            currentDatabase = y["databaseName"]
+            return answer
         #create database
         if y["command"] == 1:
             print(y["databaseName"])
             answer = catalog.createDatabase(y["databaseName"])
-            if answer == True:
-                data ="Database " + y["databaseName"] + " created succesfully!"
+            if answer == "Baza de date a fost adaugata":
+                currentDatabase=y["databaseName"]
+            data=answer
         #drop database
         if y["command"] == 2:
             answer = catalog.dropDatabase(y["databaseName"])
-            if answer == True:
-                data ="Database " + y["databaseName"] + " dropped succesfully!"
+            data=answer
+            if answer == "database dropped succesfully":
+                currentDatabase=""
+            print(answer)
         # create table
         if y["command"] == 3:
-            answer = catalog.createTable(y)
-            if answer == True:
-                data = "Table " + y["tableName"] + " created succesfully!"
+            answer = catalog.createTable(currentDatabase,y)
+            data = answer
+            print(answer)
         # drop table
         if y["command"] == 4:
-            answer = catalog.dropTable(y["databaseName"])
-            if answer == True:
-                data ="Table " + y["databaseName"] + " dropped succesfully!"
+            answer = catalog.dropTable(currentDatabase,y["databaseName"])
+            data = answer
+            print(answer)
         # create index
 
         #if data != "":data = input(' -> ')
