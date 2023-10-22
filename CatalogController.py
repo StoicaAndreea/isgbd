@@ -1,6 +1,3 @@
-import xml.etree.ElementTree as ET
-import lxml.etree as le
-
 from io import BytesIO
 from xml.etree import ElementTree as ET
 
