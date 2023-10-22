@@ -38,7 +38,7 @@ def server_program():
         if y["command"] == 0:
             answer ="Using "+ y["databaseName"]
             currentDatabase = y["databaseName"]
-            return answer
+            data=answer
         #create database
         if y["command"] == 1:
             print(y["databaseName"])
@@ -60,7 +60,7 @@ def server_program():
             print(answer)
         # drop table
         if y["command"] == 4:
-            answer = catalog.dropTable(currentDatabase,y["databaseName"])
+            answer = catalog.dropTable(currentDatabase,y["tableName"])
             data = answer
             print(answer)
         # create index

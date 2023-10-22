@@ -35,7 +35,6 @@ class CatalogController:
       return "Baza de date a fost adaugata"
 
   def dropDatabase(self, name):
-      # TODO check if database exists
 
       with open('Catalog.xml', 'r') as f:
         doc = ET.parse(f)
@@ -54,15 +53,19 @@ class CatalogController:
   def createTable(self,dataBaseName, data):
 
       with open('Catalog.xml', 'r') as f:
-        doc = ET.parse(f)
-        for db in doc.iter("Database"):
+
+        mytree = ET.parse('Catalog.xml')
+        myroot= mytree.getroot()
+        print(myroot.tag)
+        # databases=myroot.find("Databases")
+        for db in myroot.iter("Database"):
             if db.attrib['dataBaseName'] == dataBaseName:
                 tables=db.find("Tables")
                 for tb in tables.iter("Table"):
                     if tb.attrib['tableName'] == data["tableName"]:
                         return "tabelul exista deja"
-                mytree = ET.parse('Catalog.xml')
-                myroot = tables
+                #mytree = ET.parse('Catalog.xml')
+                #myroot = db.getparent()
 
 
                 table = ET.SubElement(tables, 'Table', tableName=data["tableName"],fileName=data["tableName"]+".bin" ,rowLength="0")
@@ -79,34 +82,26 @@ class CatalogController:
                 return "success creare tabel"
       return "Nu exista baza de date"
 
-  # mytree = ET.parse('Catalog.xml')
-  # myroot = mytree.getroot()
-  # for db in myroot:
-  #     if db.attrib['dataBaseName'] == dataBaseName:
-  #         for tb in db.iter("tableName"):
-  #             if tb.attrib['tableName'] == data["tableName"]:
-  #                 return "tabelul exista deja"
-
   def dropTable(self,databaseName, name):
-      # TODO check if table exists
-      mytree = ET.parse('Catalog.xml')
-      myroot = mytree.getroot()
-      found = False
-      for db in myroot:
-          if db.attrib['dataBaseName'] == databaseName:
-              for tb in db.iter("tableName"):
-                  if tb.attrib['tableName'] == name:
-                    tb.attrib.pop('tableName')
-                    found = True
-                  else:
-                    parent = tb.getparent()
-                    parent.remove(tb)
 
-      if found == True:
-        return "Tabelul a fost sters"
-      else:
-        return "nu a fost gasit tabelul"
+      with open('Catalog.xml', 'r') as f:
 
+          mytree = ET.parse('Catalog.xml')
+          myroot = mytree.getroot()
+          for db in myroot.iter("Database"):
+              if db.attrib['dataBaseName'] == databaseName:
+                  tables = db.find("Tables")
+                  for tb in tables.iter("Table"):
+                      if tb.attrib['tableName'] == name:
+                        # myroot = db.getparent()
+                        tables.remove(tb)
+                        print(myroot)
+                        # ET.dump(parent)
+
+                        mytree = ET.ElementTree(myroot)
+                        mytree.write('Catalog.xml')
+                        return "table dropped succesfully"
+      return "table couldnt be found"
 
   def createIndex(self):
       pass
