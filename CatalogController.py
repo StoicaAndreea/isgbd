@@ -13,12 +13,13 @@ class CatalogController:
       tree = ET.ElementTree(self.databases)
       tree.write('Catalog.xml')
 
-  def createDatabase(self,name):
+  def createDatabase(self, name):
       #TODO check if database exists
       database = ET.SubElement(self.databases, 'Database',dataBaseName=name)
       tables = ET.SubElement(database,"Tables")
       tree = ET.ElementTree(self.databases)
       tree.write('Catalog.xml')
+      return True
 
   def dropDatabase(self, name):
       # TODO check if database exists
@@ -30,9 +31,10 @@ class CatalogController:
               else:
                   parent = elem.getparent()
                   parent.remove(elem)
+      return True
 
 
-  def createTable(self, name):
+  def createTable(self, data):
       # TODO check if table exists
       pass
   def dropTable(self, name):
