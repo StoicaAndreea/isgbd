@@ -13,19 +13,19 @@ class Validator:
         pass
 
     def validate(self, sentence):
-        print(sentence.strip()[-1])
         if not sentence.strip()[-1] == ';':
             return "Missing ';'"
-        if re.search("^CREATE DATABASE\s.*;$", sentence, re.IGNORECASE):
-            return True
-        elif re.search("^DROP DATABASE\s.*;$", sentence, re.IGNORECASE):
-            return True
-        elif re.search("^CREATE TABLE\s.*((.|\n*?));$", sentence, re.IGNORECASE):
-            #TODO nu merge perfect ,gen daca scriu column-nametype legat sau doar column name
-            return True
-        elif re.search("^DROP TABLE\s.*;$", sentence, re.IGNORECASE):
-            return True
-        elif re.search("CREATE INDEX\s.*ON\s.*((.|\n*?));", sentence, re.IGNORECASE):
-            return True
+        if re.search("^(CREATE DATABASE)\s\w+\s*;$", sentence, re.IGNORECASE):
+            return False
+        elif re.search("^(DROP DATABASE)\s\w+\s*;$", sentence, re.IGNORECASE):
+            return False
+        elif re.search("^(USE DATABASE)\s\w+\s*;$", sentence, re.IGNORECASE):
+            return False
+        elif re.search("^CREATE TABLE (\w+)\s*\(\s*((\w+\s+\w+(?:\(\d+\))?(\s+PRIMARY KEY)?(?:\s*,\s*)?)+)\s*\);$", sentence, re.IGNORECASE):
+            return False
+        elif re.search("^(DROP TABLE)\s\w+\s*;$", sentence, re.IGNORECASE):
+            return False
+        elif re.search("^(CREATE INDEX)\s\w+\s\w+\s*\(\s*\w+\s*\);$", sentence, re.IGNORECASE):
+            return False
         else:
             return "Unknown Syntax"

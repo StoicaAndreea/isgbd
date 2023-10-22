@@ -96,11 +96,15 @@ class DataConverter:
     #     ]
     # }
     def createTable(self, expression):
-        endChar = expression.upper().index(";")
-        tableName = expression[len(self.USE_DATABASE_COMMAND) + 1: endChar]
+        endChar = expression.upper().index("(")
+        tableName = expression[len(self.USE_DATABASE_COMMAND) + 1: endChar].strip()
+
+        attributes = []
+
         x = {
             "command": 3,
-            "tableName": tableName
+            "tableName": tableName,
+            "arrtributes":[]
         }
         # convert into JSON:
         response = json.dumps(x)
@@ -120,6 +124,8 @@ class DataConverter:
     def createIndex(self, expression):
         endChar = expression.upper().index(";")
         databaseName = expression[len(self.USE_DATABASE_COMMAND) + 1: endChar]
+        attributeString = re.search("\(\s*((\w+\s+\w+(?:\(\d+\))?(\s+PRIMARY KEY)?(?:\s*,\s*)?)+)\s*\)")
+        attributes = attributeString.split(" ")
         x = {
             "command": 5,
             "databaseName": databaseName
