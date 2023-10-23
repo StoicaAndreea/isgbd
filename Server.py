@@ -5,11 +5,13 @@ from CatalogController import CatalogController
 
 def server_program():
     #   '''
+    # USE DB          -0
     # CREATE DB       -1
     # DROP DB         -2
     # CREATE TB       -3
     # DROP TB         -4
     # CREATE INDEX    -5
+    # DROP INDEX      -6
     #    '''
     catalog = CatalogController()
     # get the hostname
@@ -25,59 +27,48 @@ def server_program():
     print("Connection from: " + str(address))
     while True:
         # receive data stream. it won't accept data packet greater than 1024 bytes
-        data = conn.recv(1024).decode()
-        if not data:
+        response = conn.recv(1024).decode()
+        if not response:
             # if data is not received break
             break
-        print("from connected user: " + data)  # aici daca vrea sa facem cumva cu mai multi clienti conectati
-        # deodata ar fi naspa...
-        answer = True
-        # parse data:
-        dataJson = json.loads(data)
-
-        # use database
-        if dataJson["command"] == 0:
-            answer = "Using " + dataJson["databaseName"]
-            currentDatabase = dataJson["databaseName"]
-            data = answer
-        # create database
-        if dataJson["command"] == 1:
-            print(dataJson["databaseName"])
-            answer = catalog.createDatabase(dataJson["databaseName"])
-            if answer == "Baza de date a fost adaugata":
+        print("from connected user: " + response)
+        # parse response:
+        dataJson = json.loads(response)
+        try:
+            #use database
+            if dataJson["command"] == 0:
                 currentDatabase = dataJson["databaseName"]
-            data = answer
-        # drop database
-        if dataJson["command"] == 2:
-            answer = catalog.dropDatabase(dataJson["databaseName"])
-            data = answer
-            if answer == "database dropped succesfully":
-                currentDatabase = ""
-            print(answer)
-        # create table
-        if dataJson["command"] == 3:
-            answer = catalog.createTable(currentDatabase, dataJson)
-            data = answer
-            print(answer)
-        # drop table
-        if dataJson["command"] == 4:
-            answer = catalog.dropTable(currentDatabase, dataJson["tableName"])
-            data = answer
-            print(answer)
-        # create index
-        if dataJson["command"] == 5:
-            answer = catalog.createIndex(currentDatabase, dataJson)
-            data = answer
-            print(answer)
-        # drop index
-        if dataJson["command"] == 6:
-            answer = catalog.dropIndex(currentDatabase, dataJson)
-            data = answer
-            print(answer)
+                response = "Using " + dataJson["databaseName"]
+            # create database
+            elif dataJson["command"] == 1:
+                response = catalog.createDatabase(dataJson["databaseName"])
+                if response == "Database was created":
+                    currentDatabase = dataJson["databaseName"]
+            # drop database
+            elif dataJson["command"] == 2:
+                response = catalog.dropDatabase(dataJson["databaseName"])
+                if response == "Database dropped successfully":
+                    currentDatabase = ""
+            # create table
+            elif dataJson["command"] == 3:
+                response = catalog.createTable(currentDatabase, dataJson)
+            # drop table
+            elif dataJson["command"] == 4:
+                response = catalog.dropTable(currentDatabase, dataJson["tableName"])
+            # create index
+            elif dataJson["command"] == 5:
+                response = catalog.createIndex(currentDatabase, dataJson)
+            # drop index
+            elif dataJson["command"] == 6:
+                response = catalog.dropIndex(currentDatabase, dataJson)
+            else:
+                response = "Invalid command id..."
+        except Exception as ex:
+            response = ex
 
-        # if data != "":data = input(' -> ')
-        conn.send(data.encode())  # send data to the client
-
+        print(response)
+        # if response != "":response = input(' -> ')
+        conn.send(response.encode())  # send response to the client
     conn.close()  # close the connection
 
 
