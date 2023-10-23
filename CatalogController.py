@@ -47,17 +47,34 @@ class CatalogController:
                     tables = db.find("Tables")
                     for tb in tables.iter("Table"):
                         if tb.attrib['tableName'] == dataJson["tableName"]:
-                            return "tabelul exista deja"
-                    # myTree = ET.parse('Catalog.xml')
-                    # myRoot = db.getparent()
-
+                            raise Exception("Table name already exists")
                     table = ET.SubElement(tables, 'Table', tableName=dataJson["tableName"],
                                           fileName=dataJson["tableName"] + ".bin", rowLength="0")
                     structure = ET.SubElement(table, 'Structure')
-                    # todo for in care parcurc si adaug atributele
-                    primaryKeys = ET.SubElement(table, 'primaryKey')
-                    uniqueKeys = ET.SubElement(table, "uniqueKeys")
+                    primaryKeys = ET.SubElement(table, 'PrimaryKey')
+                    foreignKeys = ET.SubElement(table, 'ForeignKeys')
+                    uniqueKeys = ET.SubElement(table, "UniqueKeys")
                     indexFiles = ET.SubElement(table, "IndexFiles")
+                    for attribute in dataJson["attributes"]:
+                        attb = ET.SubElement(structure, 'Attribute', attributeName=attribute["name"],
+                                             type=attribute["type"], length=attribute["size"],
+                                             isNull=("0" if attribute["notNull"] else "1"))
+                        if attribute["primaryKey"]:
+                            pk = ET.SubElement(primaryKeys, "pkAttribute")
+                            pk.text = attribute["name"]
+                        if attribute["unique"]:
+                            unq = ET.SubElement(uniqueKeys, "uniqueAttribute")
+                            unq.text = attribute["name"]
+                        fk = attribute["foreignKey"]
+                        if fk["tableName"]:
+                            foreignKey = ET.SubElement(foreignKeys, "ForeignKey")
+                            attr = ET.SubElement(foreignKey, "fkAttribute")
+                            attr.text = attribute["name"]
+                            references = ET.SubElement(foreignKey, "references")
+                            refTable = ET.SubElement(references, "refTable")
+                            refTable.text = fk["tableName"]
+                            refAttribute = ET.SubElement(references, "refAttribute")
+                            refAttribute.text = fk["columnName"]
                     myTree = ET.ElementTree(myRoot)
                     myTree.write('Catalog.xml')
                     return "Successfully created table"
@@ -69,14 +86,26 @@ class CatalogController:
             myRoot = myTree.getroot()
             for db in myRoot.iter("Database"):
                 if db.attrib['dataBaseName'] == databaseName:
+                    refs = []
+                    # search for fk
+                    for ref in db.findall("Tables"):
+                        r = ref.find("refTable")
+                        if r and r.text == name:
+                            refs.append(ref)
                     tables = db.find("Tables")
                     for tb in tables.iter("Table"):
+                        fks = tb.find("ForeignKeys")
+                        for fk in fks.iter("ForeignKey"):
+                            rfr = fk.find("references")
+                            tbl = rfr.find("refTable")
+                            if tbl is not None and tbl.text == name:
+                                refs.append(tbl)
+                    # remove if possible
+                    for tb in tables.iter("Table"):
                         if tb.attrib['tableName'] == name:
-                            # myRoot = db.getparent()
+                            if len(refs) > 0:
+                                raise Exception("Could not delete table because it contains references to other tables")
                             tables.remove(tb)
-                            print(myRoot)
-                            # ET.dump(parent)
-
                             myTree = ET.ElementTree(myRoot)
                             myTree.write('Catalog.xml')
                             return "Table dropped successfully"

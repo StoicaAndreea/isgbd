@@ -1,6 +1,7 @@
 import json
 
 from AttributeTypeEnum import AttributeTypeEnum
+from AttributeWithSizeTypeEnum import AttributeWithSizeTypeEnum
 
 
 class DataConverter:
@@ -87,6 +88,7 @@ class DataConverter:
 
         attributes = []
         lines = list(filter(lambda item: item not in [",", "", " "], expression.split(",")))
+        names = []
         for line in lines:
             isPrimaryKey, isNotNull, isUnique, isForeignKey = False, False, False, False
             line = line.strip()
@@ -106,7 +108,7 @@ class DataConverter:
                 line = line.replace(self.UNIQUE_SYNTAX, "").replace(self.UNIQUE_SYNTAX.lower(), "").strip()
 
             isForeignKeyIndex = line.upper().find(self.REFERENCES_SYNTAX)
-            forKey = {
+            foreignKey = {
                 "tableName": "",
                 "columnName": ""
             }
@@ -117,7 +119,7 @@ class DataConverter:
                 fk = fk.replace(self.REFERENCES_SYNTAX, "").replace(self.REFERENCES_SYNTAX.lower(), "").strip()
                 fk = list(filter(lambda item: item not in [",", "", " "], fk.split(" ")))
                 if len(fk) == 2:
-                    forKey = {
+                    foreignKey = {
                         "tableName": fk[0].strip(),
                         "columnName": fk[1].replace("(", "").replace(")", "").strip()
                     }
@@ -128,23 +130,30 @@ class DataConverter:
             data = list(filter(lambda item: item not in ["", " "], line.split(" ")))
             if len(data) == 2:
                 attName = data[0]
+                if attName in names:
+                    raise Exception("Attribute names need to be unique")
+                else:
+                    names.append(attName)
                 typeEnd = data[1].upper().find("(")
                 attType = data[1]
-                size = 0
+                size = "-"
                 if typeEnd != -1:
                     attType = data[1][0:typeEnd].strip()
                     size = data[1][typeEnd + 1:-1]
                 attTypes = [member.value for member in AttributeTypeEnum]
+                attWithSizeTypes = [member.value for member in AttributeWithSizeTypeEnum]
                 if attType.upper() not in attTypes:
-                    raise Exception("argument type: ", attType, " not valid")
+                    raise Exception("argument type: " + attType + " not valid")
+                if size != "-" and attType.upper() not in attWithSizeTypes:
+                    raise Exception("argument type: " + attType + " should not have a size defined")
                 attributes.append({
-                    "name": attName.strip(),
-                    "type": attType.strip(),
-                    "size": size.strip(),
+                    "name": attName,
+                    "type": attType,
+                    "size": size,
                     "primaryKey": isPrimaryKey,
                     "unique": isUnique,
                     "notNull": isNotNull,
-                    "foreignKey": forKey
+                    "foreignKey": foreignKey
                 })
             else:
                 raise Exception("create table syntax not valid")

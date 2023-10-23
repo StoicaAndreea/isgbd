@@ -64,7 +64,7 @@ def server_program():
             else:
                 response = "Invalid command id..."
         except Exception as ex:
-            response = ex
+            response = str(ex)
 
         print(response)
         # if response != "":response = input(' -> ')
