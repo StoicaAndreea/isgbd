@@ -1,5 +1,6 @@
 import json
-import re
+
+from AttributeTypeEnum import AttributeTypeEnum
 
 
 class DataConverter:
@@ -16,6 +17,10 @@ class DataConverter:
     CREATE_TABLE_COMMAND = "CREATE TABLE"
     DROP_TABLE_COMMAND = "DROP TABLE"
     CREATE_INDEX_COMMAND = "CREATE INDEX"
+    PRIMARY_KEY_SYNTAX = "PRIMARY KEY"
+    NOT_NULL_SYNTAX = "NOT NULL"
+    UNIQUE_SYNTAX = "UNIQUE"
+
 
     def __init__(self):
         pass
@@ -35,8 +40,7 @@ class DataConverter:
         elif self.CREATE_INDEX_COMMAND in exp:
             return self.createIndex(expression)
         else:
-            print("UNKNOWN COMMAND")
-            return False
+            raise Exception("Unknown command")
 
     def createDatabase(self, expression):
         endChar = expression.upper().index(";")
@@ -70,7 +74,6 @@ class DataConverter:
         response = json.dumps(x)
         return response
 
-
     # {
     #     command:
     #     tableName:
@@ -78,8 +81,10 @@ class DataConverter:
     #         {
     #             name = ""
     #             type = AttributeTypeEnum.VARCHAR
-    #             size = ""
+    #             size = "1"
     #             primaryKey = False
+    #             unique = False
+    #             notNull = False
     #         }
     #         {
     #             name = ""
@@ -88,23 +93,64 @@ class DataConverter:
     #         primaryKey = False
     #         }
     #     ]
-    #     indexes: [
-    #         {
-    #           name
-    #            pkNAme:
-    #         }
-    #     ]
     # }
     def createTable(self, expression):
-        endChar = expression.upper().index("(")
-        tableName = expression[len(self.USE_DATABASE_COMMAND) + 1: endChar].strip()
+
+        expression = expression.replace(self.CREATE_TABLE_COMMAND, "") \
+            .replace(self.CREATE_TABLE_COMMAND.lower(), "").replace(";", "").strip()
+        endName = expression.upper().index("(")
+        tableName = expression[0:endName].strip()
+        expression = expression[endName+1:-1]
 
         attributes = []
+        lines = list(filter(lambda item: item not in [",", "", " "], expression.split(",")))
+        for line in lines:
+            isPrimaryKey = False
+            isNotNull = False
+            isUnique = False
+            line = line.strip()
+            primaryKeyIndex = line.upper().find(self.PRIMARY_KEY_SYNTAX)
+            if primaryKeyIndex != -1:
+                isPrimaryKey = True
+                line = line.replace(self.PRIMARY_KEY_SYNTAX, "").replace(self.PRIMARY_KEY_SYNTAX.lower(), "").strip()
+
+            notNullIndex = line.upper().find(self.NOT_NULL_SYNTAX)
+            if notNullIndex != -1:
+                isNotNull = True
+                line = line.replace(self.NOT_NULL_SYNTAX, "").replace(self.NOT_NULL_SYNTAX.lower(), "").strip()
+
+            isUniqueIndex = line.upper().find(self.UNIQUE_SYNTAX)
+            if isUniqueIndex != -1:
+                isUnique = True
+                line = line.replace(self.UNIQUE_SYNTAX, "").replace(self.UNIQUE_SYNTAX.lower(), "").strip()
+
+            data = list(filter(lambda item: item not in ["", " "], line.split(" ")))
+            if len(data) == 2:
+                attName = data[0]
+                typeEnd = data[1].upper().find("(")
+                attType = data[1]
+                size = 0
+                if typeEnd != -1:
+                    attType = data[1][0:typeEnd].strip()
+                    size = data[1][typeEnd + 1:-1]
+                attTypes = [member.value for member in AttributeTypeEnum]
+                if attType.upper() not in attTypes:
+                    raise Exception("argument type: ", attType, " not valid")
+                attributes.append({
+                    "name": attName.strip(),
+                    "type": attType.strip(),
+                    "size": size.strip(),
+                    "primaryKey": isPrimaryKey,
+                    "unique": isUnique,
+                    "notNull": isNotNull
+                })
+            else:
+                raise Exception("create table syntax not valid")
 
         x = {
             "command": 3,
             "tableName": tableName,
-            "arrtributes":[]
+            "arrtributes": attributes
         }
         # convert into JSON:
         response = json.dumps(x)
@@ -122,79 +168,23 @@ class DataConverter:
         return response
 
     def createIndex(self, expression):
-        endChar = expression.upper().index(";")
-        databaseName = expression[len(self.USE_DATABASE_COMMAND) + 1: endChar]
-        attributeString = re.search("\(\s*((\w+\s+\w+(?:\(\d+\))?(\s+PRIMARY KEY)?(?:\s*,\s*)?)+)\s*\)")
-        attributes = attributeString.split(" ")
+        expression = expression.replace(self.CREATE_INDEX_COMMAND, "")\
+            .replace(self.CREATE_INDEX_COMMAND.lower(), "").replace(";", "")
+        expContent = list(filter(lambda item: item not in ["", " ", "(", ")"], expression.split(" ")))
+        indexName, tableName, columnName = "", "", ""
+        if len(expContent) == 3:
+            indexName = expContent[0].strip()
+            tableName = expContent[1].replace('(', '').strip()
+            columnName = expContent[2].replace('(', '').replace(')', '').strip()
+        else:
+            raise Exception("create index syntax not valid")
         x = {
             "command": 5,
-            "databaseName": databaseName
+            "indexName": indexName,
+            "tableName": tableName,
+            "columnName": columnName
         }
         # convert into JSON:
         response = json.dumps(x)
         return response
-
-
-    def convertSimple(self, type, sentence):
-        # initializing substrings
-        sub1 = ""
-        sub2 = ";"
-        if type == 1 or type == 2:
-            sub1= "DATABASE"
-        elif type == 4:
-            sub1= "TABLE"
-
-        # getting index of substrings
-        idx1 = sentence.upper().index(sub1)
-        idx2 = sentence.upper().index(sub2)
-        res = ''
-        res = sentence[idx1 + len(sub1) + 1: idx2]
-        x = {
-            "command": type,
-            "databaseName": res
-        }
-        # convert into JSON:
-        y = json.dumps(x)
-
-        # the result is a JSON string:
-        return y
-
-    def find_between(text, first, last):
-        start = text.find(first) + len(first)
-        end = text.find(last, start)
-        return text[start:end] if start != -1 and end != -1 else None
-
-    def convertCreateTable(self,type,sentence):
-        sub1 = ""
-        sub2 = ";"
-
-        result = []
-        #todo de extras tablename ul
-        #ia numai stringul dintre paranteze
-        result = re.search('\((.*)\);$', sentence)
-        # print(result.group(1))
-        answ=result.group(1).split(", ")
-        # print(answ)
-        r=[]
-        for z in answ:
-            r.append(z.split())
-        #print(r)
-        x = {
-            "command": type,
-            "tableName": "NUME"
-        }
-        for item in r:
-            x[item[0]]=item[1]
-        # convert into JSON:
-        #print(x)
-        y = json.dumps(x)
-
-        # the result is a JSON string:
-        return y
-
-
-if __name__ == '__main__':
-    c = DataConverter()
-    sentence="CREATE TABLE Persons ( PersonID int, LastName varchar(255), FirstName varchar(255), Address varchar(255), City varchar(255));"
-    print(c.convertCreateTable(3,sentence))
 

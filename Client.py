@@ -21,10 +21,13 @@ def client_program():
         if msg:
             print(msg)
         else:
-            msgToSend = converter.parseExpression(message.strip())
-            client_socket.send(msgToSend.encode())  # send message
-            data = client_socket.recv(1024).decode()  # receive response
-            print('Received from server: ' + data)  # show in terminal
+            try:
+                msgToSend = converter.parseExpression(message.strip())
+                client_socket.send(msgToSend.encode())  # send message
+                data = client_socket.recv(1024).decode()  # receive response
+                print('Received from server: ' + data)  # show in terminal
+            except Exception as ex:
+                print(ex)
 
         message = input(" -> ")  # again take input
 

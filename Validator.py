@@ -21,11 +21,12 @@ class Validator:
             return False
         elif re.search("^(USE DATABASE)\s\w+\s*;$", sentence, re.IGNORECASE):
             return False
-        elif re.search("^CREATE TABLE (\w+)\s*\(\s*((\w+\s+\w+(?:\(\d+\))?(\s+PRIMARY KEY)?(?:\s*,\s*)?)+)\s*\);$", sentence, re.IGNORECASE):
+        # ordinea este primary key, not null, unique!!!!!
+        elif re.search("^CREATE TABLE (\w+)\s*\(\s*((\w+\s+\w+(?:\(\d+\))?(\s+PRIMARY KEY)?(\s+NOT NULL)?(\s+UNIQUE)?(?:\s*,\s*)?)+)\s*\);$", sentence, re.IGNORECASE):
             return False
         elif re.search("^(DROP TABLE)\s\w+\s*;$", sentence, re.IGNORECASE):
             return False
-        elif re.search("^(CREATE INDEX)\s\w+\s\w+\s*\(\s*\w+\s*\);$", sentence, re.IGNORECASE):
+        elif re.search("^(CREATE INDEX)\s\w+\s\w+\s+\(\s*\w+\s*\);$", sentence, re.IGNORECASE):
             return False
         else:
             return "Unknown Syntax"
