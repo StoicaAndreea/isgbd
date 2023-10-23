@@ -67,6 +67,29 @@ class CatalogController:
                             unq.text = attribute["name"]
                         fk = attribute["foreignKey"]
                         if fk["tableName"]:
+                            refs = []
+                            # check if fk is valid
+                            for ref in db.findall("Tables"):
+                                r = ref.find("refTable")
+                                if r and r.text == fk["tableName"]:
+                                    refs.append(ref)
+                            tables = db.find("Tables")
+                            for tb in tables.iter("Table"):
+                                if tb.attrib["tableName"] == fk["tableName"]:
+                                    refs.append(tb)
+                                    break
+                            if len(refs) == 0:
+                                raise Exception("Could not find table referenced by the fk")
+                            else:
+                                struc = tb.find("Structure")
+                                found = False
+                                for atrib in struc.iter("Attribute"):
+                                    if atrib.attrib["attributeName"] == fk["columnName"]:
+                                        found = True
+                                        break
+                                if not found:
+                                    raise Exception("Could not find column name in table referenced by the fk")
+
                             foreignKey = ET.SubElement(foreignKeys, "ForeignKey")
                             attr = ET.SubElement(foreignKey, "fkAttribute")
                             attr.text = attribute["name"]
