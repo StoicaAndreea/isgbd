@@ -12,20 +12,19 @@ class AttributeTypeEnum(Enum):
 
     # numeric
     BIT = "BIT"  # size
-    BOOL = "BOOL" # 0 or 1
+    BOOL = "BOOL"  # 0 or 1
     BOOLEAN = "BOOLEAN"
     TINYINT = "TINYINT"  # size - 0-255
     SMALLINT = "SMALLINT"  # size - +-32768
     INT = "INT"  # size
     INTEGER = "INTEGER"  # size
-    BIGINT =  "BIGINT"  # size
+    BIGINT = "BIGINT"  # size
     FLOAT = "FLOAT"  # size, d - number of digits
     DOUBLE = "DOUBLE"  # size, d - number of digits
 
-    #date and time
+    # date and time
     DATE = "DATE"
     DATETIME = "DATETIME"
     TIMESTAMP = "TIMESTAMP"
     TIME = "TIME"
     YEAR = "YEAR"
-

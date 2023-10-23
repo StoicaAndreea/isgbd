@@ -10,6 +10,7 @@ class DataConverter:
     # CREATE TB - 3
     # DROP TB   - 4
     # CREATE INDEX - 5
+    # DROP INDEX - 6
 
     CREATE_DATABASE_COMMAND = "CREATE DATABASE"
     DROP_DATABASE_COMMAND = "DROP DATABASE"
@@ -17,10 +18,10 @@ class DataConverter:
     CREATE_TABLE_COMMAND = "CREATE TABLE"
     DROP_TABLE_COMMAND = "DROP TABLE"
     CREATE_INDEX_COMMAND = "CREATE INDEX"
+    DROP_INDEX_COMMAND = "DROP INDEX"
     PRIMARY_KEY_SYNTAX = "PRIMARY KEY"
     NOT_NULL_SYNTAX = "NOT NULL"
     UNIQUE_SYNTAX = "UNIQUE"
-
 
     def __init__(self):
         pass
@@ -39,6 +40,8 @@ class DataConverter:
             return self.dropTable(expression)
         elif self.CREATE_INDEX_COMMAND in exp:
             return self.createIndex(expression)
+        elif self.DROP_INDEX_COMMAND in exp:
+            return self.dropIndex(expression)
         else:
             raise Exception("Unknown command")
 
@@ -74,40 +77,18 @@ class DataConverter:
         response = json.dumps(x)
         return response
 
-    # {
-    #     command:
-    #     tableName:
-    #     attributes: [
-    #         {
-    #             name = ""
-    #             type = AttributeTypeEnum.VARCHAR
-    #             size = "1"
-    #             primaryKey = False
-    #             unique = False
-    #             notNull = False
-    #         }
-    #         {
-    #             name = ""
-    #         type = AttributeTypeEnum.VARCHAR
-    #         size = ""
-    #         primaryKey = False
-    #         }
-    #     ]
-    # }
     def createTable(self, expression):
 
         expression = expression.replace(self.CREATE_TABLE_COMMAND, "") \
             .replace(self.CREATE_TABLE_COMMAND.lower(), "").replace(";", "").strip()
         endName = expression.upper().index("(")
         tableName = expression[0:endName].strip()
-        expression = expression[endName+1:-1]
+        expression = expression[endName + 1:-1]
 
         attributes = []
         lines = list(filter(lambda item: item not in [",", "", " "], expression.split(",")))
         for line in lines:
-            isPrimaryKey = False
-            isNotNull = False
-            isUnique = False
+            isPrimaryKey, isNotNull, isUnique = False, False, False
             line = line.strip()
             primaryKeyIndex = line.upper().find(self.PRIMARY_KEY_SYNTAX)
             if primaryKeyIndex != -1:
@@ -150,7 +131,7 @@ class DataConverter:
         x = {
             "command": 3,
             "tableName": tableName,
-            "arrtributes": attributes
+            "attributes": attributes
         }
         # convert into JSON:
         response = json.dumps(x)
@@ -168,19 +149,17 @@ class DataConverter:
         return response
 
     def createIndex(self, expression):
-        expression = expression.replace(self.CREATE_INDEX_COMMAND, "")\
+        expression = expression.replace(self.CREATE_INDEX_COMMAND, "") \
             .replace(self.CREATE_INDEX_COMMAND.lower(), "").replace(";", "")
         expContent = list(filter(lambda item: item not in ["", " ", "(", ")"], expression.split(" ")))
         indexName, tableName, columnName = "", "", ""
-        if len(expContent) == 3:
-            indexName = expContent[0].strip()
-            tableName = expContent[1].replace('(', '').strip()
-            columnName = expContent[2].replace('(', '').replace(')', '').strip()
+        if len(expContent) == 2:
+            tableName = expContent[0].replace('(', '').strip()
+            columnName = expContent[1].replace('(', '').replace(')', '').strip()
         else:
             raise Exception("create index syntax not valid")
         x = {
             "command": 5,
-            "indexName": indexName,
             "tableName": tableName,
             "columnName": columnName
         }
@@ -188,3 +167,13 @@ class DataConverter:
         response = json.dumps(x)
         return response
 
+    def dropIndex(self, expression):
+        endChar = expression.upper().index(";")
+        indexName = expression[len(self.DROP_INDEX_COMMAND) + 1: endChar]
+        x = {
+            "command": 6,
+            "indexName": indexName
+        }
+        # convert into JSON:
+        response = json.dumps(x)
+        return response

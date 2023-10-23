@@ -13,7 +13,7 @@ def server_program():
     #    '''
     catalog = CatalogController()
     # get the hostname
-    currentDatabase=""
+    currentDatabase = ""
     host = socket.gethostname()
     port = 5000  # initiate port no above 1024
     server_socket = socket.socket()  # get instance
@@ -29,43 +29,53 @@ def server_program():
         if not data:
             # if data is not received break
             break
-        print("from connected user: " + data)#aici daca vrea sa facem cumva cu mai multi clienti conectati
+        print("from connected user: " + data)  # aici daca vrea sa facem cumva cu mai multi clienti conectati
         # deodata ar fi naspa...
-        answer=True
+        answer = True
         # parse data:
-        y = json.loads(data)
+        dataJson = json.loads(data)
 
-        if y["command"] == 0:
-            answer ="Using "+ y["databaseName"]
-            currentDatabase = y["databaseName"]
-            data=answer
-        #create database
-        if y["command"] == 1:
-            print(y["databaseName"])
-            answer = catalog.createDatabase(y["databaseName"])
+        # use database
+        if dataJson["command"] == 0:
+            answer = "Using " + dataJson["databaseName"]
+            currentDatabase = dataJson["databaseName"]
+            data = answer
+        # create database
+        if dataJson["command"] == 1:
+            print(dataJson["databaseName"])
+            answer = catalog.createDatabase(dataJson["databaseName"])
             if answer == "Baza de date a fost adaugata":
-                currentDatabase=y["databaseName"]
-            data=answer
-        #drop database
-        if y["command"] == 2:
-            answer = catalog.dropDatabase(y["databaseName"])
-            data=answer
+                currentDatabase = dataJson["databaseName"]
+            data = answer
+        # drop database
+        if dataJson["command"] == 2:
+            answer = catalog.dropDatabase(dataJson["databaseName"])
+            data = answer
             if answer == "database dropped succesfully":
-                currentDatabase=""
+                currentDatabase = ""
             print(answer)
         # create table
-        if y["command"] == 3:
-            answer = catalog.createTable(currentDatabase,y)
+        if dataJson["command"] == 3:
+            answer = catalog.createTable(currentDatabase, dataJson)
             data = answer
             print(answer)
         # drop table
-        if y["command"] == 4:
-            answer = catalog.dropTable(currentDatabase,y["tableName"])
+        if dataJson["command"] == 4:
+            answer = catalog.dropTable(currentDatabase, dataJson["tableName"])
             data = answer
             print(answer)
         # create index
+        if dataJson["command"] == 5:
+            answer = catalog.createIndex(currentDatabase, dataJson)
+            data = answer
+            print(answer)
+        # drop index
+        if dataJson["command"] == 6:
+            answer = catalog.dropIndex(currentDatabase, dataJson)
+            data = answer
+            print(answer)
 
-        #if data != "":data = input(' -> ')
+        # if data != "":data = input(' -> ')
         conn.send(data.encode())  # send data to the client
 
     conn.close()  # close the connection
