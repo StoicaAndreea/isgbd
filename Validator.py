@@ -23,7 +23,7 @@ class Validator:
             return False
         # ordinea este primary key, not null, unique!!!!!
         elif re.search(
-                "^CREATE TABLE (\w+)\s*\(\s*((\w+\s+\w+(?:\(\d+\))?(\s+PRIMARY KEY)?(\s+NOT NULL)?(\s+UNIQUE)?(?:\s*,\s*)?)+)\s*\);$",
+                "^CREATE TABLE (\w+)\s*\(\s*((\w+\s+\w+(?:\(\d+\))?(\s+PRIMARY KEY)?(\s+NOT NULL)?(\s+UNIQUE)?(?:\s+REFERENCES\s\w+\s\(\w+\))?(?:\s*,\s*)?)+)\s*\);$",
                 sentence, re.IGNORECASE):
             return False
         elif re.search("^(DROP TABLE)\s\w+\s*;$", sentence, re.IGNORECASE):

@@ -22,6 +22,7 @@ class DataConverter:
     PRIMARY_KEY_SYNTAX = "PRIMARY KEY"
     NOT_NULL_SYNTAX = "NOT NULL"
     UNIQUE_SYNTAX = "UNIQUE"
+    REFERENCES_SYNTAX = "REFERENCES"
 
     def __init__(self):
         pass
@@ -78,7 +79,6 @@ class DataConverter:
         return response
 
     def createTable(self, expression):
-
         expression = expression.replace(self.CREATE_TABLE_COMMAND, "") \
             .replace(self.CREATE_TABLE_COMMAND.lower(), "").replace(";", "").strip()
         endName = expression.upper().index("(")
@@ -88,7 +88,7 @@ class DataConverter:
         attributes = []
         lines = list(filter(lambda item: item not in [",", "", " "], expression.split(",")))
         for line in lines:
-            isPrimaryKey, isNotNull, isUnique = False, False, False
+            isPrimaryKey, isNotNull, isUnique, isForeignKey = False, False, False, False
             line = line.strip()
             primaryKeyIndex = line.upper().find(self.PRIMARY_KEY_SYNTAX)
             if primaryKeyIndex != -1:
@@ -104,6 +104,26 @@ class DataConverter:
             if isUniqueIndex != -1:
                 isUnique = True
                 line = line.replace(self.UNIQUE_SYNTAX, "").replace(self.UNIQUE_SYNTAX.lower(), "").strip()
+
+            isForeignKeyIndex = line.upper().find(self.REFERENCES_SYNTAX)
+            forKey = {
+                "tableName": "",
+                "columnName": ""
+            }
+            if isForeignKeyIndex != -1:
+                if isPrimaryKey:
+                    raise Exception("Cannot have foreign key and primary key at the same time")
+                fk = line[isForeignKeyIndex:]
+                fk = fk.replace(self.REFERENCES_SYNTAX, "").replace(self.REFERENCES_SYNTAX.lower(), "").strip()
+                fk = list(filter(lambda item: item not in [",", "", " "], fk.split(" ")))
+                if len(fk) == 2:
+                    forKey = {
+                        "tableName": fk[0].strip(),
+                        "columnName": fk[1].replace("(", "").replace(")", "").strip()
+                    }
+                else:
+                    raise Exception("Foreign key not properly declared")
+                line = line[0:isForeignKeyIndex].strip()
 
             data = list(filter(lambda item: item not in ["", " "], line.split(" ")))
             if len(data) == 2:
@@ -123,7 +143,8 @@ class DataConverter:
                     "size": size.strip(),
                     "primaryKey": isPrimaryKey,
                     "unique": isUnique,
-                    "notNull": isNotNull
+                    "notNull": isNotNull,
+                    "foreignKey": forKey
                 })
             else:
                 raise Exception("create table syntax not valid")
