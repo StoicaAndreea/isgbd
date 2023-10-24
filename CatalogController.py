@@ -152,6 +152,8 @@ class CatalogController:
         return "Table could not be found be found"
 
     def createIndex(self, databaseName, dataJson):
+        if self.checkIndexName(databaseName, databaseName+dataJson["tableName"]+dataJson["columnName"][0]) == True:
+            return "Index name already exists"
         with open('Catalog.xml', 'r') as f:
             myTree = ET.parse('Catalog.xml')
             myRoot = myTree.getroot()
@@ -160,15 +162,16 @@ class CatalogController:
                     tables = db.find("Tables")
                     for tb in tables.iter("Table"):
                         if tb.attrib['tableName'] == dataJson["tableName"]:
-                            indexName=databaseName+dataJson["tableName"]+dataJson["columnName"]+".ind"
+                            indexName=databaseName+dataJson["tableName"]+dataJson["columnName"][0]+".ind" #aici se poate adauga numele la fiecare coloana...
                             indexFile = tb.find("IndexFiles")
                             indx = ET.SubElement(indexFile, 'IndexFile', indexName=indexName,
-                                                 keylength=self.searchKeyLength(databaseName, dataJson["tableName"], dataJson["columnName"]),
-                                                 isUnique=self.searchKeyUnique(databaseName, dataJson["tableName"], dataJson["columnName"]),
+                                                 keylength=self.searchKeyLength(databaseName, dataJson["tableName"], dataJson["columnName"][0]),
+                                                 isUnique=self.searchKeyUnique(databaseName, dataJson["tableName"], dataJson["columnName"][0]),
                                                  indexType="BTree")
                             indatrib=ET.SubElement(indx, 'IndexAttributes')
-                            iatrib=ET.SubElement(indatrib, 'IAttribute')
-                            iatrib.text = dataJson["columnName"]
+                            for atrib in dataJson["columnName"]:
+                                    iatrib = ET.SubElement(indatrib, 'IAttribute')
+                                    iatrib.text = atrib
                             myTree = ET.ElementTree(myRoot)
                             myTree.write('Catalog.xml')
 
@@ -180,6 +183,8 @@ class CatalogController:
             return "Could not find database"
 
     def createIndexWithName(self, currentDatabase, dataJson):
+        if self.checkIndexName(currentDatabase, dataJson["indexName"]) == True:
+            return "Index name already exists"
         with open('Catalog.xml', 'r') as f:
             myTree = ET.parse('Catalog.xml')
             myRoot = myTree.getroot()
@@ -192,13 +197,14 @@ class CatalogController:
                             indexFile = tb.find("IndexFiles")
                             indx = ET.SubElement(indexFile, 'IndexFile', indexName=indexName,
                                                  keylength=self.searchKeyLength(currentDatabase, dataJson["tableName"],
-                                                                                dataJson["columnName"]),
+                                                                                dataJson["columnName"][0]),
                                                  isUnique=self.searchKeyUnique(currentDatabase, dataJson["tableName"],
-                                                                               dataJson["columnName"]),
+                                                                               dataJson["columnName"][0]),
                                                  indexType="BTree")
                             indatrib = ET.SubElement(indx, 'IndexAttributes')
-                            iatrib = ET.SubElement(indatrib, 'IAttribute')
-                            iatrib.text = dataJson["columnName"]
+                            for atrib in dataJson["columnName"]:
+                                    iatrib = ET.SubElement(indatrib, 'IAttribute')
+                                    iatrib.text = atrib
                             myTree = ET.ElementTree(myRoot)
                             myTree.write('Catalog.xml')
 
@@ -239,6 +245,21 @@ class CatalogController:
                                     return "1"
                             return "0"
         return "0"
+
+    def checkIndexName(self, databaseName, indexName):
+        with open('Catalog.xml', 'r') as f:
+            myTree = ET.parse('Catalog.xml')
+            myRoot = myTree.getroot()
+            for db in myRoot.iter("Database"):
+                if db.attrib['dataBaseName'] == databaseName:
+                    tables = db.find("Tables")
+                    for tb in tables.iter("Table"):
+                        indexFile = tb.find("IndexFiles")
+                        for idf in indexFile.iter("IndexFile"):
+                            if idf.attrib["indexName"] == indexName+".ind":
+                                return True
+        return False
+
     def dropIndex(self, databaseName,dataJson):
 
         with open('Catalog.xml', 'r') as f:

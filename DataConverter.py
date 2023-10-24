@@ -41,7 +41,7 @@ class DataConverter:
             return self.createTable(expression)
         elif self.DROP_TABLE_COMMAND in exp:
             return self.dropTable(expression)
-        elif re.search("^(CREATE INDEX)\s\w+\sON\s\w+\s+\(\s*\w+\s*\);$",expression,re.IGNORECASE):
+        elif re.search("^(CREATE INDEX)\s\w+\sON\s\w+\s*\(\s*\w+\s*(\s*,\s*\w+\s*)*\s*\);$",expression,re.IGNORECASE):
             return self.createIndexWithNameGiven(expression)
         elif self.CREATE_INDEX_COMMAND in exp:
             return self.createIndex(expression)
@@ -184,11 +184,18 @@ class DataConverter:
     def createIndex(self, expression):
         expression = expression.replace(self.CREATE_INDEX_COMMAND, "") \
             .replace(self.CREATE_INDEX_COMMAND.lower(), "").replace(";", "")
-        expContent = list(filter(lambda item: item not in ["", " ", "(", ")"], expression.split(" ")))
-        indexName, tableName, columnName = "", "", ""
-        if len(expContent) == 2:
+        expContent = list(filter(lambda item: item not in ["", " ", "(", ")",","], expression.split(" ")))
+        indexName, tableName = "", ""
+        columnName = []
+        if len(expContent) > 1:
             tableName = expContent[0].replace('(', '').strip()
-            columnName = expContent[1].replace('(', '').replace(')', '').strip()
+            columnName.append(expContent[1].replace('(', '').replace(')', '').strip())
+            i = 2
+            while i != len(expContent):
+                columnName.append(expContent[i].replace('(', '').replace(')', '').strip())
+                i = i + 1
+                if i == len(expContent):
+                    break
         else:
             raise Exception("create index syntax not valid")
         x = {
@@ -214,12 +221,19 @@ class DataConverter:
     def createIndexWithNameGiven(self, expression):
         expression = expression.replace(self.CREATE_INDEX_COMMAND, "") \
             .replace(self.CREATE_INDEX_COMMAND.lower(), "").replace(";", "") #aici daca cumva avem Create index? nu e nici lower nici upper
-        expContent = list(filter(lambda item: item not in ["", " ", "(", ")","ON","on"], expression.split(" ")))
-        indexName, tableName, columnName = "", "", ""
-        if len(expContent) == 3:
+        expContent = list(filter(lambda item: item not in ["", " ", "(", ")","ON","on",","], expression.split(" ")))
+        indexName, tableName = "", ""
+        columnName =[]
+        if len(expContent) > 2:
             indexName = expContent[0].replace('(', '').strip()
             tableName = expContent[1].replace('(', '').strip()
-            columnName = expContent[2].replace('(', '').replace(')', '').strip()
+            columnName.append(expContent[2].replace('(', '').replace(')', '').strip())
+            i=3
+            while i != len(expContent):
+                columnName.append(expContent[i].replace('(', '').replace(')', '').strip())
+                i = i+1
+                if i == len(expContent):
+                    break
         else:
             raise Exception("create index syntax not valid")
         x = {
@@ -228,6 +242,7 @@ class DataConverter:
             "indexName": indexName,
             "columnName": columnName
         }
+
         # convert into JSON:
         response = json.dumps(x)
         return response
