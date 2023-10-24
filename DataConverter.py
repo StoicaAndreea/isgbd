@@ -1,4 +1,5 @@
 import json
+import re
 
 from AttributeTypeEnum import AttributeTypeEnum
 from AttributeWithSizeTypeEnum import AttributeWithSizeTypeEnum
@@ -40,6 +41,8 @@ class DataConverter:
             return self.createTable(expression)
         elif self.DROP_TABLE_COMMAND in exp:
             return self.dropTable(expression)
+        elif re.search("^(CREATE INDEX)\s\w+\sON\s\w+\s+\(\s*\w+\s*\);$",expression,re.IGNORECASE):
+            return self.createIndexWithNameGiven(expression)
         elif self.CREATE_INDEX_COMMAND in exp:
             return self.createIndex(expression)
         elif self.DROP_INDEX_COMMAND in exp:
@@ -207,3 +210,25 @@ class DataConverter:
         # convert into JSON:
         response = json.dumps(x)
         return response
+
+    def createIndexWithNameGiven(self, expression):
+        expression = expression.replace(self.CREATE_INDEX_COMMAND, "") \
+            .replace(self.CREATE_INDEX_COMMAND.lower(), "").replace(";", "") #aici daca cumva avem Create index? nu e nici lower nici upper
+        expContent = list(filter(lambda item: item not in ["", " ", "(", ")","ON","on"], expression.split(" ")))
+        indexName, tableName, columnName = "", "", ""
+        if len(expContent) == 3:
+            indexName = expContent[0].replace('(', '').strip()
+            tableName = expContent[1].replace('(', '').strip()
+            columnName = expContent[2].replace('(', '').replace(')', '').strip()
+        else:
+            raise Exception("create index syntax not valid")
+        x = {
+            "command": 55,
+            "tableName": tableName,
+            "indexName": indexName,
+            "columnName": columnName
+        }
+        # convert into JSON:
+        response = json.dumps(x)
+        return response
+

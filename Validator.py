@@ -30,6 +30,8 @@ class Validator:
             return False
         elif re.search("^(CREATE INDEX)\s\w+\s+\(\s*\w+\s*\);$", sentence, re.IGNORECASE):
             return False
+        elif re.search("^(CREATE INDEX)\s\w+\sON\s\w+\s+\(\s*\w+\s*\);$",sentence,re.IGNORECASE):
+            return False
         elif re.search("^(DROP INDEX)\s\w+\s*;$", sentence, re.IGNORECASE):
             return False
         else:

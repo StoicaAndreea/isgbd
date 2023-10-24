@@ -58,6 +58,9 @@ def server_program():
             # create index
             elif dataJson["command"] == 5:
                 response = catalog.createIndex(currentDatabase, dataJson)
+            # create index cu nume dat de user
+            elif dataJson["command"] == 55:
+                response = catalog.createIndexWithName(currentDatabase, dataJson)
             # drop index
             elif dataJson["command"] == 6:
                 response = catalog.dropIndex(currentDatabase, dataJson)

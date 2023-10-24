@@ -179,6 +179,35 @@ class CatalogController:
                             return "Successfully created index with name "+indexName
             return "Could not find database"
 
+    def createIndexWithName(self, currentDatabase, dataJson):
+        with open('Catalog.xml', 'r') as f:
+            myTree = ET.parse('Catalog.xml')
+            myRoot = myTree.getroot()
+            for db in myRoot.iter("Database"):
+                if db.attrib['dataBaseName'] == currentDatabase:
+                    tables = db.find("Tables")
+                    for tb in tables.iter("Table"):
+                        if tb.attrib['tableName'] == dataJson["tableName"]:
+                            indexName = dataJson["indexName"] + ".ind"
+                            indexFile = tb.find("IndexFiles")
+                            indx = ET.SubElement(indexFile, 'IndexFile', indexName=indexName,
+                                                 keylength=self.searchKeyLength(currentDatabase, dataJson["tableName"],
+                                                                                dataJson["columnName"]),
+                                                 isUnique=self.searchKeyUnique(currentDatabase, dataJson["tableName"],
+                                                                               dataJson["columnName"]),
+                                                 indexType="BTree")
+                            indatrib = ET.SubElement(indx, 'IndexAttributes')
+                            iatrib = ET.SubElement(indatrib, 'IAttribute')
+                            iatrib.text = dataJson["columnName"]
+                            myTree = ET.ElementTree(myRoot)
+                            myTree.write('Catalog.xml')
+
+                            f = open(indexName, "w")
+                            f.write("indexfile")
+                            f.close()
+
+                            return "Successfully created index with name " + indexName
+            return "Could not find database"
     def searchKeyLength(self,databaseName, tablename, columname):
 
         with open('Catalog.xml', 'r') as f:
@@ -231,5 +260,7 @@ class CatalogController:
                                 return "Index dropped successfully"
                         return "could not find index"
         return "index could not be removed"
+
+
 
 
