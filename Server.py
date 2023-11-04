@@ -35,8 +35,9 @@ def server_program():
         # parse response:
         dataJson = json.loads(response)
         try:
-            #use database
+            # use database
             if dataJson["command"] == 0:
+                catalog.useDatabase(dataJson["databaseName"])
                 currentDatabase = dataJson["databaseName"]
                 response = "Using " + dataJson["databaseName"]
             # create database
@@ -64,6 +65,10 @@ def server_program():
             # drop index
             elif dataJson["command"] == 6:
                 response = catalog.dropIndex(currentDatabase, dataJson)
+            elif dataJson["command"] == 7:
+                response = catalog.insert(currentDatabase, dataJson)
+            elif dataJson["command"] == 8:
+                response = catalog.delete(currentDatabase, dataJson)
             else:
                 response = "Invalid command id..."
         except Exception as ex:

@@ -2,11 +2,13 @@ import json
 from xml.etree import ElementTree as ET
 import os
 
-
-
+import pymongo
 
 
 class CatalogController:
+    myClient = pymongo.MongoClient("mongodb://localhost:27017/")
+    myDb = None
+
     def __init__(self):
         # header: et.write(f, encoding='utf-8', xml_declaration=True)
         if os.path.exists('Catalog.xml'):
@@ -16,18 +18,38 @@ class CatalogController:
             tree = ET.ElementTree(databases)
             tree.write('Catalog.xml')
 
+    def useDatabase(self, name):
+        with open('Catalog.xml', 'r') as f:
+            doc = ET.parse(f)
+            found = False
+            for elem in doc.iter("Database"):
+                if elem.attrib['dataBaseName'] == name:
+                    found = True
+                    self.myDb = self.myClient[name]
+                    # dblist = self.myClient.list_database_names()
+                    # if name in dblist:
+                    #     self.myDb = self.myClient[name]
+                    # else:
+                    # raise Exception("database does not exist in mongo")
+                    break
+        if not found:
+            raise Exception("database does not exist in the catalog")
+
     def createDatabase(self, name):
         with open('Catalog.xml', 'r') as f:
             doc = ET.parse(f)
             for elem in doc.iter("Database"):
                 if elem.attrib['dataBaseName'] == name:
-                    return "The database already exists"
+                    raise Exception("The database already exists")
             myTree = ET.parse('Catalog.xml')
             myRoot = myTree.getroot()
             database = ET.SubElement(myRoot, 'Database', dataBaseName=name)
             tables = ET.SubElement(database, 'Tables')
             ET.dump(tables)
             myTree.write('Catalog.xml')
+            # mongo
+            self.myDb = self.myClient[name]
+            print(self.myDb)
         return "Database was created"
 
     def dropDatabase(self, name):
@@ -39,8 +61,10 @@ class CatalogController:
                     myRoot.remove(db)
                     myTree = ET.ElementTree(myRoot)
                     myTree.write('Catalog.xml')
+                    # mongo
+                    self.myClient.drop_database(name)
                     return "Database dropped successfully"
-        return "Database could not be found"
+        raise Exception("Database could not be found")
 
     def createTable(self, dataBaseName, dataJson):
         with open('Catalog.xml', 'r') as f:
@@ -59,7 +83,7 @@ class CatalogController:
                     foreignKeys = ET.SubElement(table, 'ForeignKeys')
                     uniqueKeys = ET.SubElement(table, "UniqueKeys")
                     indexFiles = ET.SubElement(table, "IndexFiles")
-                    columnName="-"
+                    columnName = "-"
                     for attribute in dataJson["attributes"]:
                         attb = ET.SubElement(structure, 'Attribute', attributeName=attribute["name"],
                                              type=attribute["type"], length=attribute["size"],
@@ -67,7 +91,7 @@ class CatalogController:
                         if attribute["primaryKey"]:
                             pk = ET.SubElement(primaryKeys, "pkAttribute")
                             pk.text = attribute["name"]
-                            columnName=attribute["name"]
+                            columnName = attribute["name"]
                         if attribute["unique"]:
                             unq = ET.SubElement(uniqueKeys, "uniqueAttribute")
                             unq.text = attribute["name"]
@@ -106,7 +130,7 @@ class CatalogController:
                             refAttribute.text = fk["columnName"]
                     myTree = ET.ElementTree(myRoot)
                     myTree.write('Catalog.xml')
-                    #===== index pt cheia primara
+                    # ===== index pt cheia primara
                     if columnName != "-":
                         x = {
                             "command": 5,
@@ -116,7 +140,9 @@ class CatalogController:
                         # convert into JSON:
                         response = json.dumps(x)
                         self.createIndex(dataBaseName, x)
-                    #=========
+                    # =========
+                    # mongo
+                    self.myDb.create_collection(dataJson["tableName"])
                     return "Successfully created table"
         return "Could not find database"
 
@@ -148,11 +174,13 @@ class CatalogController:
                             tables.remove(tb)
                             myTree = ET.ElementTree(myRoot)
                             myTree.write('Catalog.xml')
+                            # mongo
+                            self.myDb.drop_collection(name)
                             return "Table dropped successfully"
         return "Table could not be found be found"
 
     def createIndex(self, databaseName, dataJson):
-        if self.checkIndexName(databaseName, databaseName+dataJson["tableName"]+dataJson["columnName"][0]) == True:
+        if self.checkIndexName(databaseName, databaseName + dataJson["tableName"] + dataJson["columnName"][0]) == True:
             return "Index name already exists"
         with open('Catalog.xml', 'r') as f:
             myTree = ET.parse('Catalog.xml')
@@ -162,16 +190,19 @@ class CatalogController:
                     tables = db.find("Tables")
                     for tb in tables.iter("Table"):
                         if tb.attrib['tableName'] == dataJson["tableName"]:
-                            indexName=databaseName+dataJson["tableName"]+dataJson["columnName"][0]+".ind" #aici se poate adauga numele la fiecare coloana...
+                            indexName = databaseName + dataJson["tableName"] + dataJson["columnName"][
+                                0] + ".ind"  # aici se poate adauga numele la fiecare coloana...
                             indexFile = tb.find("IndexFiles")
                             indx = ET.SubElement(indexFile, 'IndexFile', indexName=indexName,
-                                                 keylength=self.searchKeyLength(databaseName, dataJson["tableName"], dataJson["columnName"][0]),
-                                                 isUnique=self.searchKeyUnique(databaseName, dataJson["tableName"], dataJson["columnName"][0]),
+                                                 keylength=self.searchKeyLength(databaseName, dataJson["tableName"],
+                                                                                dataJson["columnName"][0]),
+                                                 isUnique=self.searchKeyUnique(databaseName, dataJson["tableName"],
+                                                                               dataJson["columnName"][0]),
                                                  indexType="BTree")
-                            indatrib=ET.SubElement(indx, 'IndexAttributes')
+                            indatrib = ET.SubElement(indx, 'IndexAttributes')
                             for atrib in dataJson["columnName"]:
-                                    iatrib = ET.SubElement(indatrib, 'IAttribute')
-                                    iatrib.text = atrib
+                                iatrib = ET.SubElement(indatrib, 'IAttribute')
+                                iatrib.text = atrib
                             myTree = ET.ElementTree(myRoot)
                             myTree.write('Catalog.xml')
 
@@ -179,8 +210,8 @@ class CatalogController:
                             f.write("indexfile")
                             f.close()
 
-                            return "Successfully created index with name "+indexName
-            return "Could not find database"
+                            return "Successfully created index with name " + indexName
+            raise Exception("Could not find database")
 
     def createIndexWithName(self, currentDatabase, dataJson):
         if self.checkIndexName(currentDatabase, dataJson["indexName"]) == True:
@@ -203,8 +234,8 @@ class CatalogController:
                                                  indexType="BTree")
                             indatrib = ET.SubElement(indx, 'IndexAttributes')
                             for atrib in dataJson["columnName"]:
-                                    iatrib = ET.SubElement(indatrib, 'IAttribute')
-                                    iatrib.text = atrib
+                                iatrib = ET.SubElement(indatrib, 'IAttribute')
+                                iatrib.text = atrib
                             myTree = ET.ElementTree(myRoot)
                             myTree.write('Catalog.xml')
 
@@ -213,9 +244,9 @@ class CatalogController:
                             f.close()
 
                             return "Successfully created index with name " + indexName
-            return "Could not find database"
-    def searchKeyLength(self,databaseName, tablename, columname):
+            raise Exception("Could not find database")
 
+    def searchKeyLength(self, databaseName, tablename, columname):
         with open('Catalog.xml', 'r') as f:
             myTree = ET.parse('Catalog.xml')
             myRoot = myTree.getroot()
@@ -230,7 +261,7 @@ class CatalogController:
                                     return at.attrib['length']
         return "-"
 
-    def searchKeyUnique(self,databaseName, tablename, columname):
+    def searchKeyUnique(self, databaseName, tablename, columname):
         with open('Catalog.xml', 'r') as f:
             myTree = ET.parse('Catalog.xml')
             myRoot = myTree.getroot()
@@ -256,12 +287,11 @@ class CatalogController:
                     for tb in tables.iter("Table"):
                         indexFile = tb.find("IndexFiles")
                         for idf in indexFile.iter("IndexFile"):
-                            if idf.attrib["indexName"] == indexName+".ind":
+                            if idf.attrib["indexName"] == indexName + ".ind":
                                 return True
         return False
 
-    def dropIndex(self, databaseName,dataJson):
-
+    def dropIndex(self, databaseName, dataJson):
         with open('Catalog.xml', 'r') as f:
             myTree = ET.parse('Catalog.xml')
             myRoot = myTree.getroot()
@@ -271,17 +301,19 @@ class CatalogController:
                     for tb in tables.iter("Table"):
                         indexFile = tb.find("IndexFiles")
                         for idf in indexFile.iter("IndexFile"):
-                            if idf.attrib["indexName"] == dataJson["indexName"]+".ind":
+                            if idf.attrib["indexName"] == dataJson["indexName"] + ".ind":
                                 indexFile.remove(idf)
                                 myTree = ET.ElementTree(myRoot)
                                 myTree.write('Catalog.xml')
 
-                                os.remove(dataJson["indexName"]+".ind")
+                                os.remove(dataJson["indexName"] + ".ind")
 
                                 return "Index dropped successfully"
-                        return "could not find index"
-        return "index could not be removed"
+                        raise Exception("Could not find index")
+        raise Exception("Index could not be removed")
 
+    def insert(self, databaseName, dataJson):
+        pass
 
-
-
+    def delete(self, databaseName, dataJson):
+        pass

@@ -13,6 +13,8 @@ class DataConverter:
     # DROP TB   - 4
     # CREATE INDEX - 5
     # DROP INDEX - 6
+    # INSERT - 7
+    # DELETE - 8
 
     CREATE_DATABASE_COMMAND = "CREATE DATABASE"
     DROP_DATABASE_COMMAND = "DROP DATABASE"
@@ -21,10 +23,14 @@ class DataConverter:
     DROP_TABLE_COMMAND = "DROP TABLE"
     CREATE_INDEX_COMMAND = "CREATE INDEX"
     DROP_INDEX_COMMAND = "DROP INDEX"
+    INSERT_COMMAND = "INSERT INTO"
+    DELETE_COMMAND = "DELETE FROM"
+    VALUES_INSERT_COMMAND = "VALUES"
     PRIMARY_KEY_SYNTAX = "PRIMARY KEY"
     NOT_NULL_SYNTAX = "NOT NULL"
     UNIQUE_SYNTAX = "UNIQUE"
     REFERENCES_SYNTAX = "REFERENCES"
+    WHERE_SYNTAX = "WHERE"
 
     def __init__(self):
         pass
@@ -41,12 +47,16 @@ class DataConverter:
             return self.createTable(expression)
         elif self.DROP_TABLE_COMMAND in exp:
             return self.dropTable(expression)
-        elif re.search("^(CREATE INDEX)\s\w+\sON\s\w+\s*\(\s*\w+\s*(\s*,\s*\w+\s*)*\s*\);$",expression,re.IGNORECASE):
+        elif re.search("^(CREATE INDEX)\s\w+\sON\s\w+\s*\(\s*\w+\s*(\s*,\s*\w+\s*)*\s*\);$", expression, re.IGNORECASE):
             return self.createIndexWithNameGiven(expression)
         elif self.CREATE_INDEX_COMMAND in exp:
             return self.createIndex(expression)
         elif self.DROP_INDEX_COMMAND in exp:
             return self.dropIndex(expression)
+        elif self.INSERT_COMMAND in exp:
+            return self.insertRow(expression)
+        elif self.DELETE_COMMAND in exp:
+            return self.deleteRow(expression)
         else:
             raise Exception("Unknown command")
 
@@ -184,7 +194,7 @@ class DataConverter:
     def createIndex(self, expression):
         expression = expression.replace(self.CREATE_INDEX_COMMAND, "") \
             .replace(self.CREATE_INDEX_COMMAND.lower(), "").replace(";", "")
-        expContent = list(filter(lambda item: item not in ["", " ", "(", ")",","], expression.split(" ")))
+        expContent = list(filter(lambda item: item not in ["", " ", "(", ")", ","], expression.split(" ")))
         indexName, tableName = "", ""
         columnName = []
         if len(expContent) > 1:
@@ -220,18 +230,19 @@ class DataConverter:
 
     def createIndexWithNameGiven(self, expression):
         expression = expression.replace(self.CREATE_INDEX_COMMAND, "") \
-            .replace(self.CREATE_INDEX_COMMAND.lower(), "").replace(";", "") #aici daca cumva avem Create index? nu e nici lower nici upper
-        expContent = list(filter(lambda item: item not in ["", " ", "(", ")","ON","on",","], expression.split(" ")))
+            .replace(self.CREATE_INDEX_COMMAND.lower(), "").replace(";",
+                                                                    "")  # aici daca cumva avem Create index? nu e nici lower nici upper
+        expContent = list(filter(lambda item: item not in ["", " ", "(", ")", "ON", "on", ","], expression.split(" ")))
         indexName, tableName = "", ""
-        columnName =[]
+        columnName = []
         if len(expContent) > 2:
             indexName = expContent[0].replace('(', '').strip()
             tableName = expContent[1].replace('(', '').strip()
             columnName.append(expContent[2].replace('(', '').replace(')', '').strip())
-            i=3
+            i = 3
             while i != len(expContent):
                 columnName.append(expContent[i].replace('(', '').replace(')', '').strip())
-                i = i+1
+                i = i + 1
                 if i == len(expContent):
                     break
         else:
@@ -247,3 +258,43 @@ class DataConverter:
         response = json.dumps(x)
         return response
 
+    def insertRow(self, expression):
+        expression = expression.replace(self.INSERT_COMMAND, "") \
+            .replace(self.INSERT_COMMAND.lower(), "").replace(";", "").strip()
+        endChar = expression.index("(")
+        tableName = expression[:endChar].strip()
+        expression = expression[endChar:].strip()
+        print(expression)
+        whereIndex = expression.upper().index(self.VALUES_INSERT_COMMAND)
+        attributes = expression[:whereIndex].replace("(", "").replace(")", "").strip().split(",")
+        attributes = list(map(lambda att: att.strip(), attributes))
+        values = expression[whereIndex + len(self.VALUES_INSERT_COMMAND):].replace("(", "").replace(")",
+                                                                                                    "").strip().split(
+            ",")
+        values = list(map(lambda att: att.strip(), values))
+        if len(attributes) != len(values):
+            raise Exception("The number of attributes and values do not match")
+        attVal = []
+        for i in range(len(attributes)):
+            attVal.append({attributes[i]: values[i]})
+
+        x = {
+            "command": 7,
+            "tableName": tableName,
+            "values": attVal
+        }
+        print(x)
+        # convert into JSON:
+        response = json.dumps(x)
+        return response
+
+    def deleteRow(self, expression):
+        endChar = expression.upper().index(";")
+        indexName = expression[len(self.DROP_INDEX_COMMAND) + 1: endChar]
+        x = {
+            "command": 8,
+            "indexName": indexName
+        }
+        # convert into JSON:
+        response = json.dumps(x)
+        return response

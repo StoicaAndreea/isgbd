@@ -30,9 +30,14 @@ class Validator:
             return False
         elif re.search("^(CREATE INDEX)\s\w+\s*\(\s*\w+\s*(\s*,\s*\w+\s*)*\s*\);$", sentence, re.IGNORECASE):
             return False
-        elif re.search("^(CREATE INDEX)\s\w+\sON\s\w+\s*\(\s*\w+\s*(\s*,\s*\w+\s*)*\s*\);$",sentence,re.IGNORECASE):
+        elif re.search("^(CREATE INDEX)\s\w+\sON\s\w+\s*\(\s*\w+\s*(\s*,\s*\w+\s*)*\s*\);$", sentence, re.IGNORECASE):
             return False
         elif re.search("^(DROP INDEX)\s\w+\s*;$", sentence, re.IGNORECASE):
+            return False
+        elif re.search("^(INSERT INTO)\s+\w+\s*\(\s*(\w+\s*,\s*)*\w+\s*\)\s*values\s*\(\s*(\w+\s*,\s*)*\w+\s*\);$",
+                       sentence, re.IGNORECASE):
+            return False
+        elif re.search("^(DELETE FROM)\s+\w+\s+WHERE\s+\w+\s*=\s*\S+\s*;$", sentence, re.IGNORECASE):
             return False
         else:
             return "Unknown Syntax"
