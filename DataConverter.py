@@ -264,7 +264,6 @@ class DataConverter:
         endChar = expression.index("(")
         tableName = expression[:endChar].strip()
         expression = expression[endChar:].strip()
-        print(expression)
         whereIndex = expression.upper().index(self.VALUES_INSERT_COMMAND)
         attributes = expression[:whereIndex].replace("(", "").replace(")", "").strip().split(",")
         attributes = list(map(lambda att: att.strip(), attributes))
@@ -283,17 +282,32 @@ class DataConverter:
             "tableName": tableName,
             "values": attVal
         }
-        print(x)
         # convert into JSON:
         response = json.dumps(x)
         return response
 
     def deleteRow(self, expression):
-        endChar = expression.upper().index(";")
-        indexName = expression[len(self.DROP_INDEX_COMMAND) + 1: endChar]
+        expression = expression.replace(self.DELETE_COMMAND, "") \
+            .replace(self.DELETE_COMMAND.lower(), "").replace(";", "").strip()
+        endChar = expression.upper().index(self.WHERE_SYNTAX)
+        tableName = expression[:endChar].strip()
+        expression = expression[endChar:].strip()
+        expression = expression.replace(self.WHERE_SYNTAX, "") \
+            .replace(self.WHERE_SYNTAX.lower(), "").replace("(", "").replace(")", "").strip()
+        pks = list(
+            filter(lambda item: item not in ["", " ", "and", "AND"], re.split("AND", expression, flags=re.IGNORECASE)))
+        primaryKey = ""
+        primaryKeyVal = ""
+        for pk in pks:
+            attributes = list(map(lambda att: att.strip(), pk.strip().split("=")))
+            primaryKey = primaryKey + "#" + attributes[0]
+            primaryKeyVal = primaryKeyVal + "#" + attributes[1]
+
         x = {
             "command": 8,
-            "indexName": indexName
+            "tableName": tableName,
+            "primaryKey": primaryKey,
+            "primaryKeyValue": primaryKeyVal
         }
         # convert into JSON:
         response = json.dumps(x)
