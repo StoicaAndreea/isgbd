@@ -7,7 +7,7 @@ import pymongo
 from ControllerUtils import checkAttributeNames, checkPrimaryKeyForInsert, \
     checkPrimaryKeyAlreadyExistsInDb, joinAttributePrimaryKeys, joinAttributeValues, getTable, searchKeyUnique, \
     searchKeyLength, checkIndexName, testTypeMatches, testAttributeTypes, checkAttributeNamesDelete, \
-    checkPrimaryKeyForDelete, testAttributeTypesForDelete, checkForeignKeyForDeleteRow
+    checkPrimaryKeyForDelete, testAttributeTypesForDelete, checkForeignKeyForDeleteRow, checkPrimaryKeyDoesNotExist
 
 
 class CatalogController:
@@ -290,22 +290,32 @@ class CatalogController:
                 attributes = structure.findall("Attribute")
                 primaryKeys = table.find("PrimaryKey")
                 primaryKeyAttributes = primaryKeys.findall("pkAttribute")
+
                 # check attributes
                 checkAttributeNames(attributes, dataJson)
                 checkPrimaryKeyForInsert(primaryKeyAttributes, dataJson)
-                # check that the type is correct+ ""+null+date
-                testAttributeTypes(attributes, dataJson)
 
                 collection = self.myDb.get_collection(dataJson["tableName"])
                 if collection is None:
                     raise Exception("Collection not found in db")
-                # check primary key is unique
-                checkPrimaryKeyAlreadyExistsInDb(primaryKeyAttributes, collection, dataJson)
-                pk = joinAttributePrimaryKeys(primaryKeyAttributes, dataJson)
-                value = joinAttributeValues(attributes, primaryKeyAttributes, dataJson)
-                collection.insert_one({"pk": pk, "value": value})
 
-        return "Successfully inserted table row"
+                key = None
+                for k in dataJson["values"][0].keys():
+                    key = k
+                response = []
+                for i in range(len(dataJson["values"][0][key])):
+                    try:
+                        testAttributeTypes(attributes, dataJson, i)
+                        # check primary key is unique
+                        checkPrimaryKeyAlreadyExistsInDb(primaryKeyAttributes, collection, dataJson, i)
+                        pk = joinAttributePrimaryKeys(primaryKeyAttributes, dataJson, i)
+                        value = joinAttributeValues(attributes, primaryKeyAttributes, dataJson, i)
+                        tr = {"pk": pk, "value": value}
+                        collection.insert_one(tr)
+                        response.append("Successfully inserted table row :" + pk)
+                    except Exception as e:
+                        response.append("Error:" + str(e))
+        return "\n".join(response)
 
     def delete(self, dataBaseName, dataJson):
         myTree = ET.parse('Catalog.xml')
@@ -322,8 +332,7 @@ class CatalogController:
             collection = self.myDb.get_collection(dataJson["tableName"])
             if collection is None:
                 raise Exception("Collection not found in db")
+            checkPrimaryKeyDoesNotExist(collection, dataJson)
             checkForeignKeyForDeleteRow(myRoot, dataBaseName, dataJson, self.myDb)
             collection.delete_one({"pk": dataJson["primaryKeyValue"]})
             return "Successfully removed table row"
-
-# todo test fk for insert => sa existe tipul corect pt fk+fk compuse

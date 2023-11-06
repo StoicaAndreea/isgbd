@@ -35,11 +35,11 @@ class Validator:
         elif re.search("^(DROP INDEX)\s\w+\s*;$", sentence, re.IGNORECASE):
             return False
         elif re.search(
-                '^(INSERT INTO)\s+\w+\s*\(\s*(\w+\s*,\s*)*\w+\s*\)\s*VALUES\s*\(\s*((("[^"]*")|(\d+\.\d+)|\d+|null)\s*,\s*)*(("[^"]*")|(\d+\.\d+)|\d+|null)\s*\);$',
+                '^(INSERT INTO)\s+\w+\s*\(\s*(\w+\s*,\s*)*\w+\s*\)\s*VALUES\s+(\(\s*((("[^"]*")|(\d+\.\d+)|\d+)\s*,\s*)*(("[^"]*")|(\d+\.\d+)|\d+)\s*\),\s{1})*(\(\s*((("[^"]*")|(\d+\.\d+)|\d+|null)\s*,\s*)*(("[^"]*")|(\d+\.\d+)|\d+|null)\s*\));$',
                 sentence, re.IGNORECASE):
             return False
         elif re.search(
-                '^(DELETE FROM)\s+\w+\s*WHERE\s*\(\s*(\w+\s*\=\s*((("[^"]*")|(\d+\.\d+)|\d+|null))\s*and\s*)*(\w+\s*\=\s*(("[^"]*")|(\d+\.\d+)|\d+|null)\s*\));$',
+                '^(DELETE FROM)\s+\w+\s*WHERE\s*\(\s*(\w+\s*\=\s*((("[^"]*")|(\d+\.\d+)|\d+))\s*and\s*)*(\w+\s*\=\s*(("[^"]*")|(\d+\.\d+)|\d+)\s*\));$',
                 sentence, re.IGNORECASE):
             return False
         else:

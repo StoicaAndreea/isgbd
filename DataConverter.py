@@ -267,16 +267,19 @@ class DataConverter:
         whereIndex = expression.upper().index(self.VALUES_INSERT_COMMAND)
         attributes = expression[:whereIndex].replace("(", "").replace(")", "").strip().split(",")
         attributes = list(map(lambda att: att.strip(), attributes))
-        values = expression[whereIndex + len(self.VALUES_INSERT_COMMAND):].replace("(", "").replace(")",
-                                                                                                    "").strip().split(
-            ",")
-        values = list(map(lambda att: att.strip(), values))
-        if len(attributes) != len(values):
-            raise Exception("The number of attributes and values do not match")
+
+        values = expression[whereIndex + len(self.VALUES_INSERT_COMMAND):].strip().split(", (")
+        values = list(map(lambda val: val.replace(")", "").replace("(", "").strip(), values))
+
         attVal = []
         for i in range(len(attributes)):
-            attVal.append({attributes[i]: values[i]})
-
+            attVal.append({attributes[i]: []})
+        for val in values:
+            vals = list(map(lambda att: att.strip(), val.split(",")))
+            if len(attributes) != len(vals):
+                raise Exception("The number of attributes and values do not match")
+            for i in range(len(attributes)):
+                attVal[i][attributes[i]].append(vals[i])
         x = {
             "command": 7,
             "tableName": tableName,

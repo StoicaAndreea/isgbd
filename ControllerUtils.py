@@ -41,23 +41,24 @@ def checkPrimaryKeyForInsert(primaryKeyAttributes, dataJson):
             raise Exception("Missing primary key " + pk.text)
 
 
-def joinAttributePrimaryKeys(primaryKeyAttributes, dataJson):
+def joinAttributePrimaryKeys(primaryKeyAttributes, dataJson, i):
     result = ""
     for attribute in primaryKeyAttributes:
         for val in dataJson["values"]:
             if attribute.text in val.keys():
-                result = result + "#" + val[attribute.text]
+                result = result + "#" + val[attribute.text][i]
                 break
     return result
 
 
-def checkPrimaryKeyAlreadyExistsInDb(primaryKeyAttributes, collection, dataJson):
-    dbPkValue = list(collection.find({"pk": joinAttributePrimaryKeys(primaryKeyAttributes, dataJson)}))
+def checkPrimaryKeyAlreadyExistsInDb(primaryKeyAttributes, collection, dataJson, i):
+    pkval = joinAttributePrimaryKeys(primaryKeyAttributes, dataJson, i)
+    dbPkValue = list(collection.find({"pk": pkval}))
     if len(dbPkValue) > 0:
-        raise Exception("Duplicate primary key")
+        raise Exception("Duplicate primary key for " + pkval)
 
 
-def joinAttributeValues(attributes, primaryKeyAttributes, dataJson):
+def joinAttributeValues(attributes, primaryKeyAttributes, dataJson, i):
     result = ""
     atts = []
     for pk in primaryKeyAttributes:
@@ -69,18 +70,20 @@ def joinAttributeValues(attributes, primaryKeyAttributes, dataJson):
         for val in dataJson["values"]:
             if attribute.attrib["attributeName"] in val.keys():
                 found = True
-                result = result + "#" + val[attribute.attrib["attributeName"]]
+                result = result + "#" + val[attribute.attrib["attributeName"]][i]
                 break
         if not found:
+            if attribute.attrib["isNull"] == "0":
+                raise Exception("Attribute " + attribute.attrib["attributeName"] + " cannot be null")
             result = result + "#null"
     return result
 
 
-def testAttributeTypes(attributes, dataJson):
+def testAttributeTypes(attributes, dataJson, i):
     for attribute in attributes:
         for val in dataJson["values"]:
             if attribute.attrib["attributeName"] in val.keys():
-                testTypeMatches(attribute, val[attribute.attrib["attributeName"]])
+                testTypeMatches(attribute, val[attribute.attrib["attributeName"]][i])
 
 
 def testTypeMatches(attribute, value):
@@ -207,6 +210,12 @@ def checkForeignKeyForDeleteRow(myRoot, databaseName, dataJson, myDb):
                 findings = col.find_one({"value": {'$regex': dataJson["primaryKeyValue"]}})
                 if findings is not None:
                     raise Exception("Could not delete row, as it is referenced in table " + ref.attrib["tableName"])
+
+
+def checkPrimaryKeyDoesNotExist(collection, dataJson):
+    dbPkValue = list(collection.find({"pk": dataJson["primaryKeyValue"]}))
+    if len(dbPkValue) == 0:
+        raise Exception("Key " + dataJson["primaryKeyValue"] + " does not exist in table")
 
 
 # indexes
