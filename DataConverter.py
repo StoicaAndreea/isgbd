@@ -22,6 +22,7 @@ class DataConverter:
     CREATE_TABLE_COMMAND = "CREATE TABLE"
     DROP_TABLE_COMMAND = "DROP TABLE"
     CREATE_INDEX_COMMAND = "CREATE INDEX"
+    CREATE_UNIQUE_INDEX_COMMAND = "CREATE UNIQUE INDEX"
     DROP_INDEX_COMMAND = "DROP INDEX"
     INSERT_COMMAND = "INSERT INTO"
     DELETE_COMMAND = "DELETE FROM"
@@ -47,8 +48,8 @@ class DataConverter:
             return self.createTable(expression)
         elif self.DROP_TABLE_COMMAND in exp:
             return self.dropTable(expression)
-        elif re.search("^(CREATE INDEX)\s\w+\sON\s\w+\s*\(\s*\w+\s*(\s*,\s*\w+\s*)*\s*\);$", expression, re.IGNORECASE):
-            return self.createIndexWithNameGiven(expression)
+        elif re.search("^(CREATE\s(UNIQUE\s)?INDEX)\s\w+\sON\s\w+\s*\(\s*\w+\s*(\s*,\s*\w+\s*)*\s*\);$", expression, re.IGNORECASE):
+             return self.createIndexWithNameGiven(expression)
         elif self.CREATE_INDEX_COMMAND in exp:
             return self.createIndex(expression)
         elif self.DROP_INDEX_COMMAND in exp:
@@ -229,11 +230,18 @@ class DataConverter:
         return response
 
     def createIndexWithNameGiven(self, expression):
-        expression = expression.replace(self.CREATE_INDEX_COMMAND, "") \
-            .replace(self.CREATE_INDEX_COMMAND.lower(), "").replace(";",
-                                                                    "")  # aici daca cumva avem Create index? nu e nici lower nici upper
+        unique = 0
+        if re.search("UNIQUE", expression, re.IGNORECASE):
+            unique=1
+        if unique == 0:
+            expression = expression.replace(self.CREATE_INDEX_COMMAND, "") \
+                .replace(self.CREATE_INDEX_COMMAND.lower(), "").replace(";", "")
+        else:
+            expression = expression.replace(self.CREATE_UNIQUE_INDEX_COMMAND, "") \
+                .replace(self.CREATE_UNIQUE_INDEX_COMMAND.lower(), "").replace(";", "")
         expContent = list(filter(lambda item: item not in ["", " ", "(", ")", "ON", "on", ","], expression.split(" ")))
         indexName, tableName = "", ""
+
         columnName = []
         if len(expContent) > 2:
             indexName = expContent[0].replace('(', '').strip()
@@ -247,11 +255,13 @@ class DataConverter:
                     break
         else:
             raise Exception("create index syntax not valid")
+
         x = {
             "command": 55,
             "tableName": tableName,
             "indexName": indexName,
-            "columnName": columnName
+            "columnName": columnName,
+            "unique": unique
         }
 
         # convert into JSON:
