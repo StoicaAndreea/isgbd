@@ -50,6 +50,22 @@ def joinAttributePrimaryKeys(primaryKeyAttributes, dataJson, i):
                 break
     return result
 
+def joinAttributeForeignKeys(foreignKeyAttributes, dataJson, i):
+    result = ""
+    for attribute in foreignKeyAttributes:
+        for val in dataJson["values"]:
+            if attribute in val.keys():
+                result = result + "#" + val[attribute][i]
+                break
+    return result
+def joinAttributeIndex(indexAttributes,dataJson,i):
+    result = ""
+    for attribute in indexAttributes:
+        for val in dataJson["values"]:
+            if attribute in val.keys():
+                result = result + "$" + val[attribute][i]
+                break
+    return result
 
 def checkPrimaryKeyAlreadyExistsInDb(primaryKeyAttributes, collection, dataJson, i):
     pkval = joinAttributePrimaryKeys(primaryKeyAttributes, dataJson, i)
@@ -218,7 +234,11 @@ def checkPrimaryKeyDoesNotExist(collection, dataJson):
         raise Exception("Key " + dataJson["primaryKeyValue"] + " does not exist in table")
 
 
-# indexes
+def checkIfIndexKeyExists(collection, dataJson):
+    dbIndexValue = list(collection.find({"pk": dataJson["pk"]}))
+    if len(dbIndexValue) == 0:
+        return False
+    else: return True
 
 
 def searchKeyLength(databaseName, tablename, columname):
@@ -267,3 +287,110 @@ def checkIndexName(databaseName, indexName):
                         if idf.attrib["indexName"] == indexName + ".ind":
                             return True
     return False
+
+
+def getIndexAttributes(databaseName, indexName):
+    attributeList=[]
+    with open('Catalog.xml', 'r'):
+        myTree = ET.parse('Catalog.xml')
+        myRoot = myTree.getroot()
+        for db in myRoot.iter("Database"):
+            if db.attrib['dataBaseName'] == databaseName:
+                tables = db.find("Tables")
+                for tb in tables.iter("Table"):
+                    indexFile = tb.find("IndexFiles")
+                    for idf in indexFile.iter("IndexFile"):
+                        if idf.attrib["indexName"] == indexName:
+                            indexAtrib=idf.find("IndexAttributes")
+                            for atrib in indexAtrib.iter("IAttribute"):
+                                attributeList.append(atrib.text)
+    return attributeList
+
+def getIndexFiles(databaseName, tableName):
+    indexesList=[]
+    with open('Catalog.xml', 'r'):
+        myTree = ET.parse('Catalog.xml')
+        myRoot = myTree.getroot()
+        for db in myRoot.iter("Database"):
+            if db.attrib['dataBaseName'] == databaseName:
+                tables = db.find("Tables")
+                for tb in tables.iter("Table"):
+                    if tb.attrib['tableName'] == tableName:
+                        indexFile = tb.find("IndexFiles")
+                        for idf in indexFile.iter("IndexFile"):
+                            indexesList.append(idf.attrib['indexName'])
+
+    return indexesList
+
+
+def checkIfIndexUnique(databaseName, tableName , indexName):
+    with open('Catalog.xml', 'r'):
+        myTree = ET.parse('Catalog.xml')
+        myRoot = myTree.getroot()
+        for db in myRoot.iter("Database"):
+            if db.attrib['dataBaseName'] == databaseName:
+                tables = db.find("Tables")
+                for tb in tables.iter("Table"):
+                    if tb.attrib['tableName'] == tableName:
+                        indexFile = tb.find("IndexFiles")
+                        for idf in indexFile.iter("IndexFile"):
+                            if idf.attrib['indexName'] == indexName:
+                                if idf.attrib['isUnique'] == '1':
+                                    return True
+                                else: return False
+
+def checkForForeignKeys(databaseName,tableName):
+    foreignKeyList=[]
+    with open('Catalog.xml', 'r'):
+        myTree = ET.parse('Catalog.xml')
+        myRoot = myTree.getroot()
+        for db in myRoot.iter("Database"):
+            if db.attrib['dataBaseName'] == databaseName:
+                tables = db.find("Tables")
+                for tb in tables.iter("Table"):
+                    if tb.attrib['tableName'] == tableName:
+                        fKeys =tb.find("ForeignKeys")
+                        for fkey in fKeys.iter("ForeignKey"):
+                            atrib=[]
+                            for fatrib in fkey.iter("fkAttribute"):
+                                atrib.append(fatrib.text)
+                            reff =fkey.find("references")
+                            refTable=reff.find("refTable").text
+                            refAttributes=[]
+                            for refat in reff.iter("refAttribute"):
+                                refAttributes.append(refat.text)
+                            y = {"fkAttribute": atrib, "refTable": refTable,"refAttribute": refAttributes}
+                            foreignKeyList.append(y)
+    return foreignKeyList
+
+def checkIfForeignKeyExists(fk,collection):
+    dbFkValue = list(collection.find({"value": fk}))
+    if len(dbFkValue) == 0:
+        return False
+    return True
+
+def checkForeignKeyForDelete(dataBaseName,dataJson,myDb,primaryKeyAttributes):
+    with open('Catalog.xml', 'r'):
+        myTree = ET.parse('Catalog.xml')
+        myRoot = myTree.getroot()
+        for db in myRoot.iter("Database"):
+            if db.attrib['dataBaseName'] == dataBaseName:
+                tables = db.find("Tables")
+                for tb in tables.iter("Table"):
+                    if tb.attrib['tableName'] != dataJson['tableName']:
+                        pklist=[]
+                        for p in primaryKeyAttributes:
+                            pklist.append(p.text)
+                        fileName="foreign" + tb.attrib['tableName'] + "".join(pklist)+".ind"
+                        col = myDb.get_collection(fileName)
+
+                        dbFkValue = list(col.find({"pk": dataJson["primaryKeyValue"].replace("#","$")}))
+                        if len(dbFkValue) != 0:
+                            raise Exception("Could not delete row, as it is referenced in table " + tb.attrib['tableName'])
+
+
+
+
+
+# if __name__ == '__main__':
+#     print(checkForForeignKeys("test","Students"))

@@ -7,7 +7,9 @@ import pymongo
 from ControllerUtils import checkAttributeNames, checkPrimaryKeyForInsert, \
     checkPrimaryKeyAlreadyExistsInDb, joinAttributePrimaryKeys, joinAttributeValues, getTable, searchKeyUnique, \
     searchKeyLength, checkIndexName, testTypeMatches, testAttributeTypes, checkAttributeNamesDelete, \
-    checkPrimaryKeyForDelete, testAttributeTypesForDelete, checkForeignKeyForDeleteRow, checkPrimaryKeyDoesNotExist
+    checkPrimaryKeyForDelete, testAttributeTypesForDelete, checkForeignKeyForDeleteRow, checkPrimaryKeyDoesNotExist, \
+    getIndexFiles, getIndexAttributes, joinAttributeIndex, checkIfIndexUnique, checkIfIndexKeyExists, \
+    checkForForeignKeys, checkIfForeignKeyExists, joinAttributeForeignKeys, checkForeignKeyForDelete
 
 
 class CatalogController:
@@ -88,6 +90,8 @@ class CatalogController:
                     uniqueKeys = ET.SubElement(table, "UniqueKeys")
                     ET.SubElement(table, "IndexFiles")
                     columnNames = []
+                    uniqueColumns=[]
+                    foreignColumns=[]
                     for attribute in dataJson["attributes"]:
                         ET.SubElement(structure, 'Attribute', attributeName=attribute["name"],
                                       type=attribute["type"].upper(), length=attribute["size"],
@@ -99,6 +103,7 @@ class CatalogController:
                         if attribute["unique"]:
                             unq = ET.SubElement(uniqueKeys, "uniqueAttribute")
                             unq.text = attribute["name"]
+                            uniqueColumns.append(attribute["name"])
                         fk = attribute["foreignKey"]
                         if fk["tableName"]:
                             refs = []
@@ -132,25 +137,69 @@ class CatalogController:
                             refTable.text = fk["tableName"]
                             refAttribute = ET.SubElement(references, "refAttribute")
                             refAttribute.text = fk["columnName"]
+                            foreignColumns.append(fk["columnName"])
+
                     myTree = ET.ElementTree(myRoot)
                     myTree.write('Catalog.xml')
-                    # ===== index pt cheia primara
+                    # ===== TODO sa mai las asta ...index pt cheia primara?
                     if len(columnNames) > 0:
                         x = {
-                            "command": 5,
+                            "command": 55,
                             "tableName": dataJson["tableName"],
-                            "columnName": columnNames
+                            "indexName": "primary" + dataJson["tableName"] + "".join(columnNames),
+                            "columnName": columnNames,
+                            "unique": "1"
                         }
                         # convert into JSON:
                         response = json.dumps(x)
-                        self.createIndex(dataBaseName, x)
+                        self.createIndexWithName(dataBaseName, x)
                     # =========
+                        # =====  index pt chei unice
+                    if len(uniqueColumns) > 1:
+                        for uniqueK in uniqueColumns:
+                            listc=[uniqueK]
+                            x = {
+                                "command": 55,
+                                "tableName": dataJson["tableName"],
+                                "indexName": "unique"+dataJson["tableName"]+uniqueK,
+                                "columnName": listc,
+                                "unique": "1"
+                            }
+                            # convert into JSON:
+                            response = json.dumps(x)
+                            self.createIndexWithName(dataBaseName, x)
+                    elif len(uniqueColumns) == 1:
+                        x = {
+                            "command": 55,
+                            "tableName": dataJson["tableName"],
+                            "indexName": "unique" + dataJson["tableName"] + "".join(uniqueColumns),
+                            "columnName": uniqueColumns,
+                            "unique": "1"
+                        }
+                        # convert into JSON:
+                        response = json.dumps(x)
+                        self.createIndexWithName(dataBaseName, x)
+                        # =========
+                    # ===== foreign index
+                    if len(foreignColumns) > 0:
+                        x = {
+                            "command": 55,
+                            "tableName": dataJson["tableName"],
+                            "indexName": "foreign" + dataJson["tableName"] + "".join(foreignColumns),
+                            "columnName": foreignColumns,
+                            "unique": "0"
+                        }
+                        # convert into JSON:
+                        response = json.dumps(x)
+                        self.createIndexWithName(dataBaseName, x)
+                        # =========
                     # mongo
                     self.myDb.create_collection(dataJson["tableName"])
                     return "Successfully created table"
         return "Could not find database"
 
     def dropTable(self, databaseName, name):
+        indexFiles=getIndexFiles(databaseName, name)
         with open('Catalog.xml', 'r'):
             myTree = ET.parse('Catalog.xml')
             myRoot = myTree.getroot()
@@ -180,6 +229,9 @@ class CatalogController:
                             myTree.write('Catalog.xml')
                             # mongo
                             self.myDb.drop_collection(name)
+                            #TODO DROP ALL INDEXES
+                            for index in indexFiles:
+                                self.myDb.drop_collection(index)
                             return "Table dropped successfully"
         return "Table could not be found be found"
 
@@ -238,12 +290,8 @@ class CatalogController:
                             indx = ET.SubElement(indexFile, 'IndexFile', indexName=indexName,
                                                  keylength=searchKeyLength(currentDatabase,
                                                                            dataJson["tableName"],
-                                                                           dataJson["columnName"][
-                                                                               0]),
-                                                 isUnique=searchKeyUnique(currentDatabase,
-                                                                          dataJson["tableName"],
-                                                                          dataJson["columnName"][
-                                                                              0]),
+                                                                           dataJson["columnName"][0]),
+                                                 isUnique=str(dataJson["unique"]),
                                                  indexType="BTree")
                             indatrib = ET.SubElement(indx, 'IndexAttributes')
                             for atrib in dataJson["columnName"]:
@@ -256,6 +304,8 @@ class CatalogController:
                             f.write("indexfile")
                             f.close()
 
+                            # mongo
+                            self.myDb.create_collection(indexName)#dataJson["indexName"])
                             return "Successfully created index with name " + indexName
             raise Exception("Could not find database")
 
@@ -275,7 +325,8 @@ class CatalogController:
                                 myTree.write('Catalog.xml')
 
                                 os.remove(dataJson["indexName"] + ".ind")
-
+                                # mongo
+                                self.myDb.drop_collection(dataJson["indexName"] + ".ind")
                                 return "Index dropped successfully"
                         raise Exception("Could not find index")
         raise Exception("Index could not be removed")
@@ -311,8 +362,58 @@ class CatalogController:
                         pk = joinAttributePrimaryKeys(primaryKeyAttributes, dataJson, i)
                         value = joinAttributeValues(attributes, primaryKeyAttributes, dataJson, i)
                         tr = {"pk": pk, "value": value}
+
+                        # TODO foreign key check =================================================
+                        foreignKeyList = checkForForeignKeys(dataBaseName,dataJson["tableName"])
+                        for foreignKey in foreignKeyList:
+                            pkFilename = "primary" + foreignKey["refTable"] + "".join(foreignKey["refAttribute"])+".ind"
+                            foreignKeyAttributes=foreignKey["fkAttribute"]
+                            fk=joinAttributeForeignKeys(foreignKeyAttributes, dataJson, i)
+                            if checkIfForeignKeyExists(fk,self.myDb.get_collection(pkFilename)) == False:
+                                raise Exception("Foreign key "+"".join(foreignKey["refAttribute"])+" with value "+fk+" does not exist,cannot insert")
+
+                        # TODO foreign key check =================================================
+                        #TODO insert for indexes =================================================
+                        indexList=getIndexFiles(dataBaseName,dataJson["tableName"])
+                        for index in indexList:
+                            isUnique = checkIfIndexUnique(dataBaseName, dataJson["tableName"], index)
+                            collection1 = self.myDb.get_collection(index)
+                            indexAtrib = getIndexAttributes(dataBaseName, index)
+                            pk1 = joinAttributeIndex(indexAtrib, dataJson, i)
+                            value1 = joinAttributePrimaryKeys(primaryKeyAttributes, dataJson, i)
+                            tr1 = {"pk": pk1, "value": value1}
+                            existsAlready = checkIfIndexKeyExists(collection1, tr1)
+                            # check fo unique
+                            if existsAlready == True:
+                                if isUnique == True:
+                                    raise Exception("Unique Index key already exists ,cannot insert")
+                        #==================================================================
+                        for index in indexList:
+                            isUnique=checkIfIndexUnique(dataBaseName,dataJson["tableName"],index)
+                            collection1 = self.myDb.get_collection(index)
+                            indexAtrib=getIndexAttributes(dataBaseName,index)
+                            pk1=joinAttributeIndex(indexAtrib,dataJson,i)
+                            value1=joinAttributePrimaryKeys(primaryKeyAttributes, dataJson, i)
+                            tr1 = {"pk": pk1, "value": value1}
+                            existsAlready= checkIfIndexKeyExists(collection1,tr1)
+                            #check fo unique
+                            if existsAlready == True:
+                                if isUnique == True:
+                                    raise Exception("Unique Index key already exists ,cannot insert")
+                                else:
+                                    #update key
+                                    myquery=collection1.find_one({"pk": pk1})
+                                    filter = {'pk': pk1}
+                                    # Values to be updated.
+                                    newvalues = {"$set": {'value': myquery["value"]+value1}}
+                                    collection1.update_one(filter, newvalues)
+                            else:
+                                collection1.insert_one(tr1)
+                                response.append("\nSuccessfully inserted index row :" + pk)
+                        # TODO insert for indexes ===========================================================
                         collection.insert_one(tr)
                         response.append("Successfully inserted table row :" + pk)
+
                     except Exception as e:
                         response.append("Error:" + str(e))
         return "\n".join(response)
@@ -333,6 +434,32 @@ class CatalogController:
             if collection is None:
                 raise Exception("Collection not found in db")
             checkPrimaryKeyDoesNotExist(collection, dataJson)
-            checkForeignKeyForDeleteRow(myRoot, dataBaseName, dataJson, self.myDb)
+
+            #TODO CHECK FOR FOREIGN KEYS==================================
+            #NU MAI E VALABIL checkForeignKeyForDeleteRow(myRoot, dataBaseName, dataJson, self.myDb)
+            checkForeignKeyForDelete(dataBaseName,dataJson,self.myDb,primaryKeyAttributes)
+
+            # TODO CHECK FOR FOREIGN KEYS==================================
+
             collection.delete_one({"pk": dataJson["primaryKeyValue"]})
+            #TODO delete from indexes values
+            indexList = getIndexFiles(dataBaseName, dataJson["tableName"])
+            for index in indexList:
+                collection1 = self.myDb.get_collection(index)
+                #indexAtrib = getIndexAttributes(dataBaseName, index)
+                #pk1 = joinAttributeIndex(indexAtrib, dataJson, 0)
+                #existsAlready = checkIfIndexKeyExists(collection1, {"pk": pk1})
+                #TODO de sters atunci cand index key contine valori multiple
+                #collection1.foo.find({"value": { $regex: dataJson["primaryKeyValue"]}}, {_id: 0})
+                collection1.delete_one({"value": dataJson["primaryKeyValue"]})
+                toBeDeleted=collection1.find({"value": {"$regex": dataJson["primaryKeyValue"]}})
+                for row in toBeDeleted:
+                    newv=row["value"]
+                    # Values to be updated.
+                    newvalue = {"$set": {'value': newv.replace(dataJson["primaryKeyValue"],"")}}
+                    collection1.update_one(row,newvalue)
+
             return "Successfully removed table row"
+
+
+
