@@ -152,7 +152,8 @@ class CatalogController:
                         }
                         # convert into JSON:
                         response = json.dumps(x)
-                        self.createIndexWithName(dataBaseName, x)
+                        #self.createIndexWithName(dataBaseName, x)
+
                     # =========
                         # =====  index pt chei unice
                     if len(uniqueColumns) > 1:
@@ -194,7 +195,9 @@ class CatalogController:
                         self.createIndexWithName(dataBaseName, x)
                         # =========
                     # mongo
-                    self.myDb.create_collection(dataJson["tableName"])
+                    col=self.myDb.create_collection(dataJson["tableName"])
+                    col.create_index([('pk', pymongo.ASCENDING)], name ="primary" + dataJson["tableName"] + "".join(columnNames))
+
                     return "Successfully created table"
         return "Could not find database"
 
@@ -305,7 +308,8 @@ class CatalogController:
                             f.close()
 
                             # mongo
-                            self.myDb.create_collection(indexName)#dataJson["indexName"])
+                            col=self.myDb.create_collection(indexName)#dataJson["indexName"])
+                            col.create_index([('pk', pymongo.ASCENDING)], name =indexName)
                             return "Successfully created index with name " + indexName
             raise Exception("Could not find database")
 
