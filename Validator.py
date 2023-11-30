@@ -42,5 +42,9 @@ class Validator:
                 '^(DELETE FROM)\s+\w+\s*WHERE\s*\(\s*(\w+\s*\=\s*((("[^"]*")|(\d+\.\d+)|\d+))\s*and\s*)*(\w+\s*\=\s*(("[^"]*")|(\d+\.\d+)|\d+)\s*\));$',
                 sentence, re.IGNORECASE):
             return False
+        elif re.search(
+            '/^SELECT\s(DISTINCT\s)?\w+(\s*,\s*\w+)*\sFROM\s\w+(\sWHERE\s(\w+\s[=><(IN)(BETWEEN)(LIKE)]?\s\w+(\sAND\s\w+\s[=><(IN)(BETWEEN)(LIKE)]?)*))*;$',
+            sentence,re.IGNORECASE):
+            return False
         else:
             return "Unknown Syntax"

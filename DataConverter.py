@@ -58,6 +58,8 @@ class DataConverter:
             return self.insertRow(expression)
         elif self.DELETE_COMMAND in exp:
             return self.deleteRow(expression)
+        elif re.search('/^SELECT\s(DISTINCT\s)?\w+(\s*,\s*\w+)*\sFROM\s\w+(\sWHERE\s(\w+\s[=><(IN)(BETWEEN)(LIKE)]?\s\w+(\sAND\s\w+\s[=><(IN)(BETWEEN)(LIKE)]?)*))*;$',expression,re.IGNORECASE):
+            return self.createSelect(expression)
         else:
             raise Exception("Unknown command")
 
@@ -325,3 +327,54 @@ class DataConverter:
         # convert into JSON:
         response = json.dumps(x)
         return response
+
+    def createSelect(self,expression):
+        tableName=[]
+        columns=[]
+        distinct=0
+        conditions=[]
+        if re.search("DISTINCT", expression, re.IGNORECASE):
+            distinct =1
+
+        result = re.search('SELECT(.*)FROM', expression,re.IGNORECASE)
+        result=result.group(1).split(",")
+        for r in result:
+            r=r.replace("DISTINCT","").replace("Distinct","").replace("distinct","")
+            columns.append(r.strip())
+        # print(columns)
+
+        result1 = re.search('FROM(.*)WHERE', expression, re.IGNORECASE)
+        result1 = result1.group(1).split(",")
+        for r in result1:
+            tableName.append(r.strip())
+        # print(tableName)
+
+        result2 = re.search('WHERE(.*);', expression, re.IGNORECASE)
+        result2=result2.group(1)
+
+        for delimiter in ["AND","and","And"]:
+            result2 = ",".join(result2.split(delimiter))
+
+
+        for r in result2.split(","):
+            r=r.strip()
+            conditions.append(r.split())
+        # print(conditions)
+        x = {
+            "command": 9,
+            "tableName": tableName,
+            "columns":columns,
+            "distinct":distinct,
+            "conditions":conditions
+        }
+        # convert into JSON:
+        print(x)
+        response = json.dumps(x)
+        return response
+
+
+# if __name__ == '__main__':
+#TODO poti sa rulezi main ca sa vezi cum ar arata JSON-ul pt createSelect si la lab 5 mai trebuie adaugat in x numai partea de join
+
+#     converter = DataConverter()
+#     converter.createSelect("SELECT DISTINCT CustomerName, City FROM Customers WHERE CustomerID > 80 AND CustomerID = 350;")
