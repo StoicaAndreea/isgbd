@@ -48,8 +48,9 @@ class DataConverter:
             return self.createTable(expression)
         elif self.DROP_TABLE_COMMAND in exp:
             return self.dropTable(expression)
-        elif re.search("^(CREATE\s(UNIQUE\s)?INDEX)\s\w+\sON\s\w+\s*\(\s*\w+\s*(\s*,\s*\w+\s*)*\s*\);$", expression, re.IGNORECASE):
-             return self.createIndexWithNameGiven(expression)
+        elif re.search("^(CREATE\s(UNIQUE\s)?INDEX)\s\w+\sON\s\w+\s*\(\s*\w+\s*(\s*,\s*\w+\s*)*\s*\);$", expression,
+                       re.IGNORECASE):
+            return self.createIndexWithNameGiven(expression)
         elif self.CREATE_INDEX_COMMAND in exp:
             return self.createIndex(expression)
         elif self.DROP_INDEX_COMMAND in exp:
@@ -58,7 +59,9 @@ class DataConverter:
             return self.insertRow(expression)
         elif self.DELETE_COMMAND in exp:
             return self.deleteRow(expression)
-        elif re.search('/^SELECT\s(DISTINCT\s)?\w+(\s*,\s*\w+)*\sFROM\s\w+(\sWHERE\s(\w+\s[=><(IN)(BETWEEN)(LIKE)]?\s\w+(\sAND\s\w+\s[=><(IN)(BETWEEN)(LIKE)]?)*))*;$',expression,re.IGNORECASE):
+        elif re.search(
+                'SELECT',
+                expression, re.IGNORECASE):
             return self.createSelect(expression)
         else:
             raise Exception("Unknown command")
@@ -234,7 +237,7 @@ class DataConverter:
     def createIndexWithNameGiven(self, expression):
         unique = 0
         if re.search("UNIQUE", expression, re.IGNORECASE):
-            unique=1
+            unique = 1
         if unique == 0:
             expression = expression.replace(self.CREATE_INDEX_COMMAND, "") \
                 .replace(self.CREATE_INDEX_COMMAND.lower(), "").replace(";", "")
@@ -328,53 +331,103 @@ class DataConverter:
         response = json.dumps(x)
         return response
 
-    def createSelect(self,expression):
-        tableName=[]
-        columns=[]
-        distinct=0
-        conditions=[]
+    def createSelect(self, expression):
+        tableNames = []
+        tableAliases = []
+        columns = {}
+        distinct = 0
+        conditions = []
+        joins = []
         if re.search("DISTINCT", expression, re.IGNORECASE):
-            distinct =1
+            distinct = 1
 
-        result = re.search('SELECT(.*)FROM', expression,re.IGNORECASE)
-        result=result.group(1).split(",")
-        for r in result:
-            r=r.replace("DISTINCT","").replace("Distinct","").replace("distinct","")
-            columns.append(r.strip())
-        # print(columns)
+        tableNamesWithAlias = re.search(
+            'FROM\s(\w+(\s(AS)\s\w+)?)((\s*,\s(\w+(\s(AS)\s\w+)?))*)(\s((INNER JOIN)|(OUTER JOIN)|(LEFT JOIN)|(RIGHT JOIN)|(WHERE)))',
+            expression,
+            re.IGNORECASE).group()
+        if not tableNamesWithAlias:
+            raise Exception("could not find table name")
+        tableNamesWithAlias = tableNamesWithAlias.replace("FROM", "").replace("from", "").replace("inner join",
+                                                                                                  "").replace(
+            "INNER JOIN", "").replace("outer join", "").replace("OUTER JOIN", "").replace("left join", "").replace(
+            "LEFT JOIN", "").replace("right join", "").replace("RIGHT JOIN", "").replace("WHERE", '').replace("where",
+                                                                                                              '').strip()
+        tableNamesWithAlias = tableNamesWithAlias.split(",")
+        for tableNameWithAlias in tableNamesWithAlias:
+            if re.search(' AS ', tableNameWithAlias, re.IGNORECASE):
+                tna = re.split("AS", tableNameWithAlias, flags=re.IGNORECASE)
+                if tna[1].strip() in tableAliases:
+                    raise Exception('cannot use the same alias for two tables')
+                tableAliases.append(tna[1].strip())
+                tableNames.append(tna[0].strip())
+            else:
+                if '-' in tableAliases:
+                    raise Exception('you need to use aliases')
+                tableAliases.append('-')
+                tableNames.append(tableNameWithAlias)
 
-        result1 = re.search('FROM(.*)WHERE', expression, re.IGNORECASE)
-        result1 = result1.group(1).split(",")
-        for r in result1:
-            tableName.append(r.strip())
-        # print(tableName)
+        # todo: lab 5 table names and aliases from joins
+        if re.search('(INNER JOIN)|(OUTER JOIN)|(LEFT JOIN)|(RIGHT JOIN)', expression, re.IGNORECASE):
+            joinList = re.search('(INNER JOIN)|(OUTER JOIN)|(LEFT JOIN)|(RIGHT JOIN)(.*)WHERE', expression,
+                                 re.IGNORECASE).group(1)
 
-        result2 = re.search('WHERE(.*);', expression, re.IGNORECASE)
-        result2=result2.group(1)
+        columnNames = re.search('SELECT(.*)FROM', expression, re.IGNORECASE)
+        columnNames = columnNames.group(1).split(",")
+        for columnName in columnNames:
+            columnName = columnName.replace("DISTINCT", "").replace("Distinct", "").replace("distinct", "").strip()
+            if re.search('\.', columnName, re.IGNORECASE):
+                colnamewa = columnName.split(".")
+                if colnamewa[0] in tableAliases:
+                    if colnamewa[0] in columns:
+                        columns[colnamewa[0]].append(colnamewa[1])
+                    else:
+                        columns[colnamewa[0]] = [colnamewa[1]]
+                else:
+                    raise Exception('unknown alias used for column name')
+            else:
+                if '-' in columns:
+                    columns['-'].append(columnName)
+                else:
+                    columns['-'] = [columnName]
 
-        for delimiter in ["AND","and","And"]:
-            result2 = ",".join(result2.split(delimiter))
+        conditionList = re.search('WHERE(.*);', expression, re.IGNORECASE).group().replace("where", "").replace("WHERE",
+                                                                                                                "").replace(
+            ";", "").strip()
+        conditions = re.split("AND", conditionList, flags=re.IGNORECASE)
 
-
-        for r in result2.split(","):
-            r=r.strip()
-            conditions.append(r.split())
-        # print(conditions)
         x = {
             "command": 9,
-            "tableName": tableName,
-            "columns":columns,
-            "distinct":distinct,
-            "conditions":conditions
+            "tableNames": tableNames,
+            "tableAliases": tableAliases,
+            "columns": columns,
+            "distinct": distinct,
+            "conditions": conditions,
+            "joins": joins,
         }
+        # content pentru fiecare tip de join
+        # {
+        #     "joinType": joinType
+        #     "tableName1": tableName,
+        #     "tableName2": tableName,
+        #     "columns1":[],
+        #     "columns2": []
+        # }
         # convert into JSON:
-        print(x)
         response = json.dumps(x)
         return response
 
 
-# if __name__ == '__main__':
-#TODO poti sa rulezi main ca sa vezi cum ar arata JSON-ul pt createSelect si la lab 5 mai trebuie adaugat in x numai partea de join
+# select distinct c.t1id, c.sunet, c.pozitie from table1 as c where c.pozitie = 2 and c.sunet = "a";
+# select distinct t1id, sunet, pozitie from table1 where pozitie = 2 and sunet = "a";
+# select c.t1id, c.sunet, c.pozitie from table1 as c where c.pozitie = 2 and c.sunet = "a";
+# select c.t1id, c.sunet, c.pozitie, a.row from table1 as c, table2 as a where c.pozitie = 2 and c.sunet = "a" and a.row = "1";
+# select t1id, sunet, pozitie from table1 where sunet = "a" and pozitie = 2;
+# select t1id, sunet, pozitie from table1 where pozitie = 2;
+# select sunet from table1 where sunet = "a" and pozitie = 2;
+# select sunet from table1 where sunet = "a" and pozitie = 2 and t1id = 1;
+if __name__ == '__main__':
+    # TODO poti sa rulezi main ca sa vezi cum ar arata JSON-ul pt createSelect si la lab 5 mai trebuie adaugat in x numai partea de join
 
-#     converter = DataConverter()
-#     converter.createSelect("SELECT DISTINCT CustomerName, City FROM Customers WHERE CustomerID > 80 AND CustomerID = 350;")
+    converter = DataConverter()
+    converter.createSelect(
+        'SELECT DISTINCT c.CustomerName, c.City FROM Customers as c , animals as a inner join ana as c, outer join mama WHERE c.a BEtween (1,2) and c.a < 3 and c.c in [1,1] and c.c between (1,2) and a.c = c.c;')

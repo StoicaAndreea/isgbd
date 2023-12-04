@@ -30,7 +30,8 @@ class Validator:
             return False
         elif re.search("^(CREATE INDEX)\s\w+\s*\(\s*\w+\s*(\s*,\s*\w+\s*)*\s*\);$", sentence, re.IGNORECASE):
             return False
-        elif re.search("^(CREATE\s(UNIQUE\s)?INDEX)\s\w+\sON\s\w+\s*\(\s*\w+\s*(\s*,\s*\w+\s*)*\s*\);$", sentence, re.IGNORECASE):
+        elif re.search("^(CREATE\s(UNIQUE\s)?INDEX)\s\w+\sON\s\w+\s*\(\s*\w+\s*(\s*,\s*\w+\s*)*\s*\);$", sentence,
+                       re.IGNORECASE):
             return False
         elif re.search("^(DROP INDEX)\s\w+\s*;$", sentence, re.IGNORECASE):
             return False
@@ -43,8 +44,8 @@ class Validator:
                 sentence, re.IGNORECASE):
             return False
         elif re.search(
-            '/^SELECT\s(DISTINCT\s)?\w+(\s*,\s*\w+)*\sFROM\s\w+(\sWHERE\s(\w+\s[=><(IN)(BETWEEN)(LIKE)]?\s\w+(\sAND\s\w+\s[=><(IN)(BETWEEN)(LIKE)]?)*))*;$',
-            sentence,re.IGNORECASE):
+                '^SELECT\s(DISTINCT\s)?\s*(\w+|\w+\.\w+)(\s*,\s*(\w+|\w+\.\w+))*\sFROM\s(\w+(\s(AS)\s\w+)?)((\s*,\s(\w+(\s(AS)\s\w+)?))*)(\s(((INNER JOIN)|(OUTER JOIN)|(LEFT JOIN)|(RIGHT JOIN))\s\w+(\s(AS)\s\w+)?)((\s*,\s*(((INNER JOIN)|(OUTER JOIN)|(LEFT JOIN)|(RIGHT JOIN))\s\w+(\s(AS)\s\w+)?))*))?\sWHERE\s((\w+|\w+\.\w+)\s((=|>|<|<=|>=)\s*(("[^"]*")|(\d+\.\d+)|\d+|(\w+|\w+\.\w+))|(LIKE\s("[^"]*"))|(IN\s\[(("[^"]*")|(\d+\.\d+)|\d+|null)((\s*,\s*(("[^"]*")|(\d+\.\d+)|\d+|null))*)\])|(BETWEEN\s\(((("[^"]*")|\d+\.\d+)|\d+)\s*,\s*((("[^"]*")|\d+\.\d+)|\d+)\))))((\sAND\s((\w+|\w+\.\w+)\s((=|>|<|<=|>=)\s*(("[^"]*")|(\d+\.\d+)|\d+|(\w+|\w+\.\w+))|(LIKE\s("[^"]*"))|(IN\s\[(("[^"]*")|(\d+\.\d+)|\d+|null)((\s*,\s*(("[^"]*")|(\d+\.\d+)|\d+|null))*)\])|(BETWEEN\s\(((("[^"]*")|\d+\.\d+)|\d+)\s*,\s*((("[^"]*")|\d+\.\d+)|\d+)\)))))*);$',
+                sentence, re.IGNORECASE):
             return False
         else:
             return "Unknown Syntax"

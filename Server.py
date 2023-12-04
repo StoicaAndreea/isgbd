@@ -59,7 +59,7 @@ def server_program():
             # create index
             elif dataJson["command"] == 5:
                 response = catalog.createIndex(currentDatabase, dataJson)
-            # create index cu nume dat de user
+            # create index cu name dat de user
             elif dataJson["command"] == 55:
                 response = catalog.createIndexWithName(currentDatabase, dataJson)
             # drop index
@@ -69,6 +69,8 @@ def server_program():
                 response = catalog.insert(currentDatabase, dataJson)
             elif dataJson["command"] == 8:
                 response = catalog.delete(currentDatabase, dataJson)
+            elif dataJson["command"] == 9:
+                response = catalog.select(currentDatabase, dataJson)
             else:
                 response = "Invalid command id..."
         except Exception as ex:
