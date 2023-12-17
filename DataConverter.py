@@ -368,9 +368,49 @@ class DataConverter:
 
         # todo: lab 5 table names and aliases from joins
         if re.search('(INNER JOIN)|(OUTER JOIN)|(LEFT JOIN)|(RIGHT JOIN)', expression, re.IGNORECASE):
-            joinList = re.search('(INNER JOIN)|(OUTER JOIN)|(LEFT JOIN)|(RIGHT JOIN)(.*)WHERE', expression,
-                                 re.IGNORECASE).group(1)
-
+            joinList = re.search('((INNER JOIN)|(OUTER JOIN)|(LEFT JOIN)|(RIGHT JOIN))(.*)WHERE', expression,
+                                 re.IGNORECASE).group().replace("WHERE", '').replace("where", '').strip()
+            print(expression,joinList)
+            joinList = joinList.split(",")
+            for i, joinItem in enumerate(joinList):
+                print(joinList, joinItem)
+                if re.search('AS \w+ ON', joinItem, re.IGNORECASE):
+                    tableName = re.search('((INNER JOIN)|(OUTER JOIN)|(LEFT JOIN)|(RIGHT JOIN)) (.*) AS', joinItem,
+                                          re.IGNORECASE).group().replace("inner join", "").replace("INNER JOIN", "") \
+                        .replace("outer join", "").replace("OUTER JOIN", "").replace("left join", "").replace(
+                        "LEFT JOIN", "").replace("right join", "").replace("RIGHT JOIN", "").replace("as", '').replace(
+                        "AS", '').strip()
+                    alias = re.search("AS (.*) ON", joinItem, flags=re.IGNORECASE).group().replace("on", "").replace("ON", '').replace("as", "").replace("AS", '').strip()
+                    if alias in tableAliases:
+                        raise Exception('cannot use the same alias for two tables')
+                    tableAliases.append(alias)
+                    tableNames.append(tableName)
+                    joinType = re.search('(INNER JOIN)|(OUTER JOIN)|(LEFT JOIN)|(RIGHT JOIN)', joinItem, re.IGNORECASE).group().strip().upper()
+                    condition = re.search('ON(.*)', joinItem, re.IGNORECASE).group().replace("on", '').replace("ON", '').strip()
+                    joins.append({
+                        "join": joinType,
+                        "table": tableName,
+                        "alias": alias,
+                        "condition": condition
+                    })
+                else:
+                    if '-' in tableAliases:
+                        raise Exception('you need to use aliases')
+                    tableAliases.append('-')
+                    tableName = re.search('(INNER JOIN)|(OUTER JOIN)|(LEFT JOIN)|(RIGHT JOIN) (.*) ON', joinItem,
+                                          re.IGNORECASE).group().replace("inner join", "").replace("INNER JOIN", "") \
+                        .replace("outer join", "").replace("OUTER JOIN", "").replace("left join", "").replace(
+                        "LEFT JOIN", "").replace("right join", "").replace("RIGHT JOIN", "").replace("on", '').replace(
+                        "ON", '').strip()
+                    tableNames.append(tableName)
+                    joinType = re.search('(INNER JOIN)|(OUTER JOIN)|(LEFT JOIN)|(RIGHT JOIN)', joinItem, re.IGNORECASE).group().strip().upper()
+                    condition = re.search('ON(.*)', joinItem, re.IGNORECASE).group().replace("on", '').replace("ON", '').strip()
+                    joins.append({
+                        "join": joinType,
+                        "table": tableName,
+                        "alias": '-',
+                        "condition": condition
+                    })
         columnNames = re.search('SELECT(.*)FROM', expression, re.IGNORECASE)
         columnNames = columnNames.group(1).split(",")
         for columnName in columnNames:
@@ -413,8 +453,9 @@ class DataConverter:
         #     "columns2": []
         # }
         # convert into JSON:
+        print(x);
         response = json.dumps(x)
-        return response
+        #return response
 
 
 # select distinct c.t1id, c.sunet, c.pozitie from table1 as c where c.pozitie = 2 and c.sunet = "a";
@@ -430,4 +471,4 @@ if __name__ == '__main__':
 
     converter = DataConverter()
     converter.createSelect(
-        'SELECT DISTINCT c.CustomerName, c.City FROM Customers as c , animals as a inner join ana as c, outer join mama WHERE c.a BEtween (1,2) and c.a < 3 and c.c in [1,1] and c.c between (1,2) and a.c = c.c;')
+        'SELECT DISTINCT c.CustomerName, b.City FROM Customers as c , animals inner join ana as a on a.c = b.c, outer join mama as b on a.c = b.c WHERE c.a BEtween (1,2) and c.a < 3 and c.c in [1,1] and d.c between (1,2);')
