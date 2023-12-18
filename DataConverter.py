@@ -370,10 +370,8 @@ class DataConverter:
         if re.search('(INNER JOIN)|(OUTER JOIN)|(LEFT JOIN)|(RIGHT JOIN)', expression, re.IGNORECASE):
             joinList = re.search('((INNER JOIN)|(OUTER JOIN)|(LEFT JOIN)|(RIGHT JOIN))(.*)WHERE', expression,
                                  re.IGNORECASE).group().replace("WHERE", '').replace("where", '').strip()
-            print(expression,joinList)
             joinList = joinList.split(",")
             for i, joinItem in enumerate(joinList):
-                print(joinList, joinItem)
                 if re.search('AS \w+ ON', joinItem, re.IGNORECASE):
                     tableName = re.search('((INNER JOIN)|(OUTER JOIN)|(LEFT JOIN)|(RIGHT JOIN)) (.*) AS', joinItem,
                                           re.IGNORECASE).group().replace("inner join", "").replace("INNER JOIN", "") \
@@ -407,7 +405,8 @@ class DataConverter:
                     condition = re.search('ON(.*)', joinItem, re.IGNORECASE).group().replace("on", '').replace("ON", '').strip()
                     joins.append({
                         "join": joinType,
-                        "table": tableName,
+                        "table1": tableNames[0], #initial
+                        "table2": tableName, #joined
                         "alias": '-',
                         "condition": condition
                     })
@@ -429,6 +428,9 @@ class DataConverter:
                     columns['-'].append(columnName)
                 else:
                     columns['-'] = [columnName]
+        for tal in tableAliases:
+            if tal not in columns:
+                columns[tal] = []
 
         conditionList = re.search('WHERE(.*);', expression, re.IGNORECASE).group().replace("where", "").replace("WHERE",
                                                                                                                 "").replace(
@@ -444,20 +446,10 @@ class DataConverter:
             "conditions": conditions,
             "joins": joins,
         }
-        # content pentru fiecare tip de join
-        # {
-        #     "joinType": joinType
-        #     "tableName1": tableName,
-        #     "tableName2": tableName,
-        #     "columns1":[],
-        #     "columns2": []
-        # }
-        # convert into JSON:
-        print(x);
         response = json.dumps(x)
-        #return response
+        return response
 
-
+# select a.t1id, a.sunet, a.pozitie from table1 as a inner join table2 as b on b.row = a.sunet where a.pozitie > 1;
 # select distinct c.t1id, c.sunet, c.pozitie from table1 as c where c.pozitie = 2 and c.sunet = "a";
 # select distinct t1id, sunet, pozitie from table1 where pozitie = 2 and sunet = "a";
 # select c.t1id, c.sunet, c.pozitie from table1 as c where c.pozitie = 2 and c.sunet = "a";

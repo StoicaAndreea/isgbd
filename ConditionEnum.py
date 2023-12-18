@@ -10,3 +10,10 @@ class ConditionEnum(Enum):
     LIKE = "like"
     IN = "in"
     BETWEEN = "between"
+
+
+class JoinEnum(Enum):
+    INNER = "inner"
+    OUTER = "outer"
+    LEFT = "left"
+    RIGHT = "right"

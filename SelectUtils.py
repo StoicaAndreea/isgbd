@@ -1,4 +1,4 @@
-import json
+import itertools
 import re
 
 from CatalogXmlUtils import getIndexAttributesAndFiles, getTableAttributes, getTablePrimaryKeys, \
@@ -7,6 +7,35 @@ from ConditionEnum import ConditionEnum
 
 
 def parseData(dataJson, databaseName, databaseConnection):
+    if len(dataJson['joins']) == 0:
+        return parseDataWithoutJoin(dataJson, databaseName, databaseConnection)
+    else:
+        return parseDataJoin(dataJson, databaseName, databaseConnection)
+
+
+def parseDataJoin(dataJson, databaseName, databaseConnection):
+    result = []
+    for _ in dataJson['tableAliases']:
+        result.append(["-"])
+    for join in dataJson['joins']:
+        res = parseJoin(join, dataJson, databaseName, databaseConnection)
+        for i in range(len(result)):
+            if result[i] != res[i] and res[i] != ["-"]:
+                if result[i] == ["-"]:
+                    result[i] = res[i]
+                else:
+                    result[i] = intersection(result[i], res[i])
+    print(result, "before distinct")
+    result = handleDistinct(dataJson, result)
+    #TODO result = doWhereCondition here!!!!
+    print(result, "after distinct")
+    result = finalJoinOfData(dataJson, result, databaseName)
+    result = arrangeDataJoin(dataJson, result, databaseName)
+    print(result, "after arrange")
+    return result
+
+
+def parseDataWithoutJoin(dataJson, databaseName, databaseConnection):
     result = []
     for _ in dataJson['tableAliases']:
         result.append(["-"])
@@ -20,6 +49,156 @@ def parseData(dataJson, databaseName, databaseConnection):
                     result[i] = intersection(result[i], res[i])
     result = handleDistinct(dataJson, result)
     return arrangeData(dataJson, result, databaseName)
+
+
+def parseJoin(join, dataJson, databaseName, databaseConnection):
+    if re.search('inner join', join["join"], re.IGNORECASE):
+        return parseConditionByJoin(join, dataJson, databaseName, databaseConnection)
+    elif re.search('outer join', join["join"], re.IGNORECASE):
+        return parseConditionByJoin(join, dataJson, databaseName, databaseConnection)
+    elif re.search('left join', join["join"], re.IGNORECASE):
+        return parseConditionByJoin(join, dataJson, databaseName, databaseConnection)
+    elif re.search('right join', join["join"], re.IGNORECASE):
+        return parseConditionByJoin(join, dataJson, databaseName, databaseConnection)
+    raise Exception(join + " join is not valid")
+
+
+def parseConditionByJoin(condition, dataJson, databaseName, databaseConnection):
+    result = []
+    for _ in dataJson['tableAliases']:
+        result.append(["-"])
+    cond = condition["condition"].split("=")
+    columnName = cond[0].strip()
+    expectedValue = cond[1].strip()
+    cnwa = columnName.split(".")
+    evwa = expectedValue.split(".")
+    if cnwa[0] not in dataJson['tableAliases'] or evwa[0] not in dataJson['tableAliases']:
+        raise Exception('unknown alias used for column name in command')
+    else:
+        aliasIndex1 = dataJson["tableAliases"].index(cnwa[0])
+        aliasIndex2 = dataJson["tableAliases"].index(evwa[0])
+        result = runSearchJoin(result, dataJson["tableNames"][aliasIndex1], aliasIndex1,
+                               dataJson["tableNames"][aliasIndex2], aliasIndex2, dataJson,
+                               databaseConnection, databaseName, cnwa[1], evwa[1])
+    return result
+
+
+def runSearchJoin(result, tableName1, i1, tableName2, i2, dataJson, databaseConnection, databaseName,
+                  columnName1,
+                  columnName2):
+    table1 = databaseConnection.get_collection(tableName1)
+    table2 = databaseConnection.get_collection(tableName2)
+    indexList1 = list(filter(lambda idx: "foreign" not in idx["fileName"] and columnName1 in idx["attributes"],
+                             getIndexAttributesAndFiles(databaseName, tableName1)))
+    attributeList1 = getTableAttributes(databaseName, tableName1)
+    pkList1 = getTablePrimaryKeys(databaseName, tableName1)
+    indexList2 = list(filter(lambda idx: "foreign" not in idx["fileName"] and columnName2 in idx["attributes"],
+                             getIndexAttributesAndFiles(databaseName, tableName2)))
+    # todo fk index
+    attributeList2 = getTableAttributes(databaseName, tableName2)
+    pkList2 = getTablePrimaryKeys(databaseName, tableName2)
+    # cautare secventiala in db
+    if len(indexList1) == 0 and len(indexList2) == 0:
+        pass
+        # result = sequentialSearchInTable(conditionType, result, attributeList, pkList, table, i1, dataJson
+        # , columnName, expectedValue)
+    # cautare cu indecsi => indexed nested loop
+    elif len(indexList1) != 0:
+        result = indexedNestedLoop(result, table2, table1, indexList1, attributeList2, pkList2, i1, i2, dataJson,
+                                   databaseConnection, columnName2, columnName1)
+    elif len(indexList2) != 0:
+        result = indexedNestedLoop(result, table1, table2, indexList2, attributeList1, pkList1, i2, i1, dataJson,
+                                   databaseConnection, columnName1, columnName2)
+    return result
+
+
+def sortMergeJoin(result, table1, table2, indexList, attributeList, pkList, i1, i2, dataJson, databaseConnection,
+                      columnName1, columnName2):
+    list1 = table1.find({}, {"_id": False, "pk": True, "value": True})
+    list1 = table2.find({}, {"_id": False, "pk": True, "value": True})
+    # resvalues = list(filter(lambda rvi: rvi not in ["", " "], r["value"].split('#')))
+    # respk = list(filter(lambda rvi: rvi not in ["", " "], r["pk"].split('#')))
+
+
+def indexedNestedLoop(result, table1, table2, indexList, attributeList, pkList, i1, i2, dataJson, databaseConnection,
+                      columnName1, columnName2):
+    attributeList = getAttributeListWithoutPk(attributeList, pkList)
+    pkList = list(map(lambda pkItem: pkItem.text, pkList))
+    for r in table1.find({}, {"_id": False, "pk": True, "value": True}):
+        resvalues = list(filter(lambda rvi: rvi not in ["", " "], r["value"].split('#')))
+        respk = list(filter(lambda rvi: rvi not in ["", " "], r["pk"].split('#')))
+        for attributeListIndex, att in enumerate(attributeList):
+            if att == columnName1:
+                lung = 0
+                if result[i1] != ["-"]:
+                    lung = len(result[i1])
+                result = indexSearchInTableJoin(result, indexList, table2, i1, dataJson,
+                                                databaseConnection,
+                                                columnName2, resvalues[attributeListIndex])
+                if lung != len(result[i1]):
+                    if result[i2] == ["-"]:
+                        result[i2].remove("-")
+                    result[i2].append(r)
+                break
+        for pkIndex, pk in enumerate(pkList):
+            if pk == columnName1:
+                lung = 0
+                if result[i2] != ["-"]:
+                    lung = len(result[i2])
+                result = indexSearchInTableJoin(result, indexList, table2, i1, dataJson,
+                                                databaseConnection,
+                                                columnName2, respk[pkIndex])
+                if lung != len(result[i1]):
+                    if result[i2] == ["-"]:
+                        result[i2].remove("-")
+                    result[i2].append(r)
+                break
+    return result
+
+
+def indexSearchInTableJoin(result, indexList, table, i, dataJson, databaseConnection, columnName,
+                           expectedValue):
+    for index in indexList:
+        if columnName in index["attributes"]:
+            file = databaseConnection.get_collection(index["fileName"])
+            if file is not None:
+                for r in file.find({"pk": conditionValidationIndex(ConditionEnum.EQ, expectedValue)},
+                                   {"_id": False, "pk": True, "value": True}):
+                    if dataJson['columns'][dataJson['tableAliases'][i]]:
+                        if result[i] == ["-"]:
+                            result[i].remove("-")
+                        result[i].append(table.find_one({"pk": {"$regex": r["value"]}},
+                                                        {"_id": False, "pk": True,
+                                                         "value": True}))
+                if result[i] != ["-"]:
+                    break
+    return result
+
+
+def sequentialSearchInTableJoin(conditionType, result, attributeList, pkList, table, i, dataJson, columnName,
+                                expectedValue):
+    attributeList = getAttributeListWithoutPk(attributeList, pkList)
+    pkList = list(map(lambda pkItem: pkItem.text, pkList))
+    for r in table.find({}, {"_id": False, "pk": True, "value": True}):
+        resvalues = list(filter(lambda rvi: rvi not in ["", " "], r["value"].split('#')))
+        respk = list(filter(lambda rvi: rvi not in ["", " "], r["pk"].split('#')))
+        for attributeListIndex, att in enumerate(attributeList):
+            if att == columnName:
+                if conditionValidationSequential(conditionType, resvalues[attributeListIndex], expectedValue):
+                    if dataJson['columns'][dataJson['tableAliases'][i]]:
+                        if result[i] == ["-"]:
+                            result[i].remove("-")
+                        result[i].append(r)
+                break
+        for pkIndex, pk in enumerate(pkList):
+            if pk == columnName:
+                if conditionValidationSequential(conditionType, respk[pkIndex], expectedValue):
+                    if dataJson['columns'][dataJson['tableAliases'][i]]:
+                        if result[i] == ["-"]:
+                            result[i].remove("-")
+                        result[i].append(r)
+                break
+    return result
 
 
 def parseCondition(condition, dataJson, databaseName, databaseConnection):
@@ -39,7 +218,7 @@ def parseCondition(condition, dataJson, databaseName, databaseConnection):
         return parseConditionByType(condition, ConditionEnum.IN, dataJson, databaseName, databaseConnection)
     elif re.search('BETWEEN', condition, re.IGNORECASE):
         return parseConditionByType(condition, ConditionEnum.BETWEEN, dataJson, databaseName, databaseConnection)
-    raise Exception(condition+" condition is not valid")
+    raise Exception(condition + " condition is not valid")
 
 
 def parseConditionByType(condition, conditionType, dataJson, databaseName, databaseConnection):
@@ -48,7 +227,6 @@ def parseConditionByType(condition, conditionType, dataJson, databaseName, datab
         result.append(["-"])
     if checkCondition(condition, conditionType):
         cond = splitCondition(condition, conditionType)
-        print(cond)
         columnName = cond[0].strip()
         expectedValue = cond[1].strip()
         if re.search('\.', columnName, re.IGNORECASE):
@@ -61,7 +239,8 @@ def parseConditionByType(condition, conditionType, dataJson, databaseName, datab
                                    databaseConnection, databaseName, cnwa[1], expectedValue)
         else:
             for i, tableName in enumerate(dataJson['tableNames']):
-                result = runSearch(conditionType, result, tableName, i, dataJson, databaseConnection, databaseName, columnName,
+                result = runSearch(conditionType, result, tableName, i, dataJson, databaseConnection, databaseName,
+                                   columnName,
                                    expectedValue)
         return result
 
@@ -108,15 +287,18 @@ def checkCondition(condition, conditionType):
         if re.search('\s*(LIKE\s("[^"]*"))\s*', condition, re.IGNORECASE) is None:
             raise Exception(condition + " condition is not correct")
     elif conditionType == ConditionEnum.IN:
-        if re.search('\s*(IN\s\[(("[^"]*")|(\d+\.\d+)|\d+|null)((\s*,\s*(("[^"]*")|(\d+\.\d+)|\d+|null))*)])\s*', condition, re.IGNORECASE) is None:
+        if re.search('\s*(IN\s\[(("[^"]*")|(\d+\.\d+)|\d+|null)((\s*,\s*(("[^"]*")|(\d+\.\d+)|\d+|null))*)])\s*',
+                     condition, re.IGNORECASE) is None:
             raise Exception(condition + " condition is not correct")
     elif conditionType == ConditionEnum.BETWEEN:
-        if re.search('\s*(BETWEEN\s\(((("[^"]*")|\d+\.\d+)|\d+)\s*,\s*((("[^"]*")|\d+\.\d+)|\d+)\))\s*', condition, re.IGNORECASE) is None:
+        if re.search('\s*(BETWEEN\s\(((("[^"]*")|\d+\.\d+)|\d+)\s*,\s*((("[^"]*")|\d+\.\d+)|\d+)\))\s*', condition,
+                     re.IGNORECASE) is None:
             raise Exception(condition + " condition is not correct")
     return True
 
 
-def runSearch(conditionType, result, tableName, i, dataJson, databaseConnection, databaseName, columnName, expectedValue):
+def runSearch(conditionType, result, tableName, i, dataJson, databaseConnection, databaseName, columnName,
+              expectedValue):
     table = databaseConnection.get_collection(tableName)
     indexList = list(filter(lambda idx: "foreign" not in idx["fileName"] and columnName in idx["attributes"],
                             getIndexAttributesAndFiles(databaseName, tableName)))
@@ -133,7 +315,8 @@ def runSearch(conditionType, result, tableName, i, dataJson, databaseConnection,
     return result
 
 
-def sequentialSearchInTable(conditionType, result, attributeList, pkList, table, i, dataJson, columnName, expectedValue):
+def sequentialSearchInTable(conditionType, result, attributeList, pkList, table, i, dataJson, columnName,
+                            expectedValue):
     attributeList = getAttributeListWithoutPk(attributeList, pkList)
     pkList = list(map(lambda pkItem: pkItem.text, pkList))
     for r in table.find({}, {"_id": False, "pk": True, "value": True}):
@@ -159,7 +342,6 @@ def sequentialSearchInTable(conditionType, result, attributeList, pkList, table,
 
 
 def conditionValidationSequential(conditionType, value, expectedValue):
-    print(value, expectedValue)
     expectedValue = expectedValue.strip()
     if conditionType == ConditionEnum.EQ:
         return value == expectedValue
@@ -189,7 +371,8 @@ def indexSearchInTable(conditionType, result, indexList, table, i, dataJson, dat
         if columnName in index["attributes"]:
             file = databaseConnection.get_collection(index["fileName"])
             if file is not None:
-                for r in file.find({"pk": conditionValidationIndex(conditionType, expectedValue)}, {"_id": False, "pk": True, "value": True}):
+                for r in file.find({"pk": conditionValidationIndex(conditionType, expectedValue)},
+                                   {"_id": False, "pk": True, "value": True}):
                     if dataJson['columns'][dataJson['tableAliases'][i]]:
                         if result[i] == ["-"]:
                             result[i].remove("-")
@@ -254,7 +437,40 @@ def arrangeData(dataJson, result, databaseName):
                         res[a] = resvalue[ai]
                 tableResult.append(res)
         result[i] = tableResult
+    print(result)
     return result
+
+
+def finalJoinOfData(dataJson, result, databaseName):
+    interm = result[0]
+    for i in range(1, len(result)):
+        interm = list(itertools.product(interm, result[i]))
+    interm = list(map(lambda item: list(item), interm))
+    print("interm", interm)
+    return interm
+
+
+def arrangeDataJoin(dataJson, result, databaseName):
+    resultFinal = []
+    for r in result:
+        res = {}
+        for i, tableName in enumerate(dataJson["tableNames"]):
+            pkList = getTablePrimaryKeys(databaseName, tableName)
+            attributeList = getAttributeListWithoutPk(getTableAttributes(databaseName, tableName), pkList)
+            pkList = list(map(lambda pkItem: pkItem.text, pkList))
+
+            if r[i] != "-":
+                resvalue = list(filter(lambda rvi: rvi not in ["", " "], r[i]["value"].split('#')))
+                respk = list(filter(lambda rvi: rvi not in ["", " "], r[i]["pk"].split('#')))
+                for pki, pk in enumerate(pkList):
+                    if pk in dataJson["columns"][dataJson["tableAliases"][i]]:
+                        res[pk] = respk[pki]
+                for ai, a in enumerate(attributeList):
+                    if a in dataJson["columns"][dataJson["tableAliases"][i]]:
+                        res[a] = resvalue[ai]
+        resultFinal.append(res)
+    print(result)
+    return resultFinal
 
 
 def intersection(list1, list2):
