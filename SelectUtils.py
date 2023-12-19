@@ -37,8 +37,6 @@ def parseDataJoin(dataJson, databaseName, databaseConnection):
     print(result, "\nafter arrange\n")
     return result
 
-1530
-
 
 def parseConditionsForJoin(dataJson,before):
     result=[]
@@ -51,6 +49,7 @@ def parseConditionsForJoin(dataJson,before):
         if k==1:
             result.append(item)
     return result
+
 
 def checkCol(triplet,columns):
     for alias in columns:
