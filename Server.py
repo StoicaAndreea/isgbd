@@ -13,6 +13,8 @@ def server_program():
     # CREATE INDEX    -5
     # DROP INDEX      -6
     #    '''
+    g = open("selectRESULTS.txt", "w")
+
     catalog = CatalogController()
     # get the hostname
     currentDatabase = ""
@@ -77,7 +79,13 @@ def server_program():
             response = str(ex)
 
         print(response)
+        g.close()
+        g = open("selectRESULTS.txt", "w")
+        g.write(response)
+
         # if response != "":response = input(' -> ')
+        if len(response)>1000:
+            response="Select success , check file"
         conn.send(response.encode())  # send response to the client
     conn.close()  # close the connection
 

@@ -25,14 +25,106 @@ def parseDataJoin(dataJson, databaseName, databaseConnection):
                     result[i] = res[i]
                 else:
                     result[i] = intersection(result[i], res[i])
-    print(result, "before distinct")
+    print(result, "\nbefore distinct\n")
     result = handleDistinct(dataJson, result)
     #TODO result = doWhereCondition here!!!!
-    print(result, "after distinct")
+    print(result, "\nafter distinct\n")
     result = finalJoinOfData(dataJson, result, databaseName)
     result = arrangeDataJoin(dataJson, result, databaseName)
-    print(result, "after arrange")
+    #=========
+    result = parseConditionsForJoin(dataJson,result)
+    #======
+    print(result, "\nafter arrange\n")
     return result
+
+
+def parseConditionsForJoin(dataJson,before):
+    result=[]
+    for item in before:
+        k=1
+        for condition in dataJson["conditions"]:
+            triplet=getCondition(condition)
+            if checkCond(triplet,item,checkCol(triplet,dataJson["columns"])) == False:
+                k=0
+        if k==1:
+            result.append(item)
+    return result
+
+def checkCol(triplet,columns):
+    for alias in columns:
+        if is_float(triplet[0]) == False:
+            if is_integer(triplet[0]) == False:
+                if triplet[0] in columns[alias]:
+                    return "stanga"
+        if is_float(triplet[2]) == False:
+            if is_integer(triplet[2]) == False:
+                if triplet[2] in columns[alias]:
+                   return "dreapta"
+    return "stanga"
+
+def checkCond(triplet,item,poz):
+    if poz=="stanga":
+        p1=0
+    else:
+        p1=2
+    if triplet[1] == "=":
+        if p1 == 0:
+            if is_integer(triplet[2]) == True:
+                return int(item[triplet[p1]]) == triplet[2]
+            elif is_float(triplet[2]) == True:
+                return float(item[triplet[p1]]) == triplet[2]
+            else:return item[triplet[p1]] == triplet[2]
+        else:
+            if is_integer(triplet[0]) == True:
+                return triplet[0] == int(item[triplet[p1]])
+            elif is_float(triplet[0]) == True:
+                return triplet[0] == int(item[triplet[p1]])
+            else:return triplet[0] == item[triplet[p1]]
+    elif triplet[1] == "<":
+        if p1 == 0:
+            if is_integer(triplet[2]) == True:
+                return int(item[triplet[p1]]) < triplet[2]
+            elif is_float(triplet[2]) == True:
+                return float(item[triplet[p1]]) < triplet[2]
+            else:
+                return item[triplet[p1]] < triplet[2]
+        else:
+            if is_integer(triplet[0]) == True:
+                return triplet[0] < int(item[triplet[p1]])
+            elif is_float(triplet[0]) == True:
+                return triplet[0] < int(item[triplet[p1]])
+            else:
+                return triplet[0] < item[triplet[p1]]
+    elif triplet[1] == ">":
+        if p1 == 0:
+            if is_integer(triplet[2]) == True:
+                return int(item[triplet[p1]]) > triplet[2]
+            elif is_float(triplet[2]) == True:
+                return float(item[triplet[p1]]) > triplet[2]
+            else:
+                return item[triplet[p1]] > triplet[2]
+        else:
+            if is_integer(triplet[0]) == True:
+                return triplet[0] > int(item[triplet[p1]])
+            elif is_float(triplet[0]) == True:
+                return triplet[0] > int(item[triplet[p1]])
+            else:
+                return triplet[0] > item[triplet[p1]]
+
+def getCondition(condition):
+    triplet=condition.split(" ")
+    final=[]
+
+    for item in triplet:
+        if is_integer(item) == True:
+            final.append(int(item))
+        elif is_float(item) == True:
+            final.append(float(item))
+        else:
+            final.append(re.sub(r'^.*?[.]', '', item))
+
+    #print(final)
+    return final
 
 
 def parseDataWithoutJoin(dataJson, databaseName, databaseConnection):
@@ -475,3 +567,23 @@ def arrangeDataJoin(dataJson, result, databaseName):
 
 def intersection(list1, list2):
     return [value for value in list1 if value in list2]
+
+def is_float(string):
+    try:
+        float(string)
+        return True
+    except ValueError:
+        return False
+
+def is_integer(string):
+    try:
+        int(string)
+        return True
+    except ValueError:
+        return False
+
+
+# if __name__ == '__main__':
+    # getCondition("ceva = sunet")
+    # print(checkCol(getCondition("sunet > 1"),{"a": ["t1id", "sunet", "pozitie"], "b": ["t2id", "row", "column"]}))
+    #print(checkCond(getCondition("pozitie < 25"), {'t1id': '2', 'sunet': '"ana"', 'pozitie': '50', 't2id': '1', 'row': '"ana"', 'column': '1'},checkCol(getCondition("pozitie = 50"),{"a": ["t1id", "sunet", "pozitie"], "b": ["t2id", "row", "column"]})))

@@ -445,6 +445,7 @@ class DataConverter:
             "distinct": distinct,
             "conditions": conditions,
             "joins": joins,
+            "expression":expression
         }
         response = json.dumps(x)
         return response

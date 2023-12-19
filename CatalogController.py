@@ -1,4 +1,5 @@
 import json
+import time
 from xml.etree import ElementTree as ET
 import os
 
@@ -17,6 +18,7 @@ from SelectUtils import parseData
 class CatalogController:
     myClient = pymongo.MongoClient("mongodb://localhost:27017/")
     myDb = None
+    f = open("selectTimes.txt", "w")
 
     def __init__(self):
         # header: et.write(f, encoding='utf-8', xml_declaration=True)
@@ -461,7 +463,12 @@ class CatalogController:
             return "Successfully removed table row"
 
     def select(self, dataBaseName, dataJson):
+        start_time = time.time()
         result = parseData(dataJson, dataBaseName, self.myDb)
+
+        self.f.write("\n"+dataJson["expression"]+"--- %s seconds ---" % (time.time() - start_time))
+
+        # print("--- %s seconds ---" % (time.time() - start_time))
         if result == [[]]:
             return "No records found"
         return json.dumps(result)
