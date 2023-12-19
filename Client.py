@@ -1,4 +1,7 @@
+import random
 import socket
+import string
+from random import randrange
 
 from DataConverter import DataConverter
 from Validator import Validator
@@ -13,8 +16,9 @@ def client_program():
 
     validator = Validator()
     converter = DataConverter()
-    while message != 'bye':
 
+    while message != 'bye':
+        # message = "use database test;"
         msg = validator.validate(message.strip())
         if msg:
             print(msg)
@@ -26,6 +30,24 @@ def client_program():
                 print('Received from server: ' + data)  # show in terminal
             except Exception as ex:
                 print(ex)
+
+    # letters = string.ascii_lowercase
+    # for x in range(1000000):
+    #     a = ''.join(random.choice(letters) for i in range(2))+str(x)
+    #     message = "insert into table2 (t2id, row, column) values ("+str(x)+", \""+a+"\", "+str(x)+"); "
+    #     if x == 30:
+    #         message = "insert into table2 (t2id, row, column) values (" + str(x) + ", \"latrat\", " + str(x) + "); "
+    #     msg = validator.validate(message.strip())
+    #     if msg:
+    #         print(msg)
+    #     else:
+    #         try:
+    #             msgToSend = converter.parseExpression(message.strip())
+    #             client_socket.send(msgToSend.encode())  # send message
+    #             data = client_socket.recv(1024).decode()  # receive response
+    #             print('Received from server: ' + data)  # show in terminal
+    #         except Exception as ex:
+    #             print(ex)
 
         message = input(" -> ")  # again take input
 
