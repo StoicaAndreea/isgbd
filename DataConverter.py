@@ -450,7 +450,15 @@ class DataConverter:
         response = json.dumps(x)
         return response
 
+# index
+# select a.t1id, a.sunet, a.pozitie, b.t2id, b.row, b.column from table1 as a inner join table2 as b on b.row = a.sunet where a.pozitie > 1;
+# select a.t1id, a.sunet, a.pozitie, b.t2id, b.row, b.column from table1 as a inner join table2 as b on b.row = a.sunet where a.pozitie < 6;
+# select a.t1id, a.sunet, a.pozitie, b.t2id, b.row, b.column from table1 as a inner join table2 as b on b.row = a.sunet where b.row = "12";
+
+
+# select a.t1id, a.sunet, a.pozitie, b.t2id, b.row, b.column from table1 as a inner join table2 as b on b.column = a.pozitie where a.pozitie > 1;
 # select a.t1id, a.sunet, a.pozitie from table1 as a inner join table2 as b on b.row = a.sunet where a.pozitie > 1;
+# select a.t1id, a.sunet, a.pozitie, b.t2id, b.row, b.column from table1 as a inner join table2 as b on b.row = a.sunet where a.pozitie > 1;
 # select distinct c.t1id, c.sunet, c.pozitie from table1 as c where c.pozitie = 2 and c.sunet = "a";
 # select distinct t1id, sunet, pozitie from table1 where pozitie = 2 and sunet = "a";
 # select c.t1id, c.sunet, c.pozitie from table1 as c where c.pozitie = 2 and c.sunet = "a";

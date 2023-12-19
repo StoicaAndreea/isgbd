@@ -32,10 +32,12 @@ def parseDataJoin(dataJson, databaseName, databaseConnection):
     result = finalJoinOfData(dataJson, result, databaseName)
     result = arrangeDataJoin(dataJson, result, databaseName)
     #=========
-    result = parseConditionsForJoin(dataJson,result)
+    result = parseConditionsForJoin(dataJson, result)
     #======
     print(result, "\nafter arrange\n")
     return result
+
+1530
 
 
 def parseConditionsForJoin(dataJson,before):
@@ -191,9 +193,7 @@ def runSearchJoin(result, tableName1, i1, tableName2, i2, dataJson, databaseConn
     pkList2 = getTablePrimaryKeys(databaseName, tableName2)
     # cautare secventiala in db
     if len(indexList1) == 0 and len(indexList2) == 0:
-        pass
-        # result = sequentialSearchInTable(conditionType, result, attributeList, pkList, table, i1, dataJson
-        # , columnName, expectedValue)
+        sortMergeJoin(result, table1, table2, attributeList1, pkList1, attributeList2, pkList2, i1, i2, columnName1, columnName2)
     # cautare cu indecsi => indexed nested loop
     elif len(indexList1) != 0:
         result = indexedNestedLoop(result, table2, table1, indexList1, attributeList2, pkList2, i1, i2, dataJson,
@@ -204,10 +204,67 @@ def runSearchJoin(result, tableName1, i1, tableName2, i2, dataJson, databaseConn
     return result
 
 
-def sortMergeJoin(result, table1, table2, indexList, attributeList, pkList, i1, i2, dataJson, databaseConnection,
-                      columnName1, columnName2):
-    list1 = table1.find({}, {"_id": False, "pk": True, "value": True})
-    list1 = table2.find({}, {"_id": False, "pk": True, "value": True})
+def sortMergeJoin(result, table1, table2, attributeList1, pkList1, attributeList2, pkList2, i1, i2, columnName1, columnName2):
+    attributeList1 = getAttributeListWithoutPk(attributeList1, pkList1)
+    pkList1 = list(map(lambda pkItem: pkItem.text, pkList1))
+    attributeList2 = getAttributeListWithoutPk(attributeList2, pkList2)
+    pkList2 = list(map(lambda pkItem: pkItem.text, pkList2))
+    list1 = list(table1.find({}, {"_id": False, "pk": True, "value": True}))
+    list2 = list(table2.find({}, {"_id": False, "pk": True, "value": True}))
+    if columnName1 in attributeList1 and columnName2 in attributeList2:
+        list1 = sorted(list1, key=lambda item: item["value"].split('#')[attributeList1.index(columnName1)+1])
+        l1v = list(map(lambda item: item["value"].split('#')[attributeList1.index(columnName1)+1], list1))
+        list2 = sorted(list2, key=lambda item: item["value"].split('#')[attributeList2.index(columnName2)+1])
+        l2v = list(map(lambda item: item["value"].split('#')[attributeList2.index(columnName2)+1], list2))
+        j1 = 0
+        j2 = 0
+        while j1 < len(list1) and j2 < len(list2):
+            while j1 < len(list1) and j2 < len(list2) and l1v[j1] == l2v[j2]:
+                print("3", l1v[j1], l2v[j2])
+                if result[i2] == ["-"]:
+                    result[i2].remove("-")
+                    if list2[j2] not in result[i2]:
+                        result[i2].append(list2[j2])
+                if result[i1] == ["-"]:
+                    result[i1].remove("-")
+                if list2[j1] not in result[i1]:
+                    result[i1].append(list1[j1])
+                j1 += 1
+                #j2 += 1
+            while j1 < len(list1) and j2 < len(list2) and l1v[j1] < l2v[j2]:
+                print("1", l1v[j1], l2v[j2])
+                j1 += 1
+            while j1 < len(list1) and j2 < len(list2) and l1v[j2] < l2v[j1]:
+                print("2", l1v[j1], l2v[j2])
+                j2 += 1
+                print(result)
+            if j1 >= len(list1) or j2 >= len(list2):
+                break
+    elif columnName1 in pkList1 and columnName2 in pkList2:
+        list1 = sorted(list1, key=lambda item: item["value"].split('#')[pkList1.index(columnName1)+1])
+        l1v = list(map(lambda item: item["value"].split('#')[pkList1.index(columnName1)+1], list1))
+        list2 = sorted(list2, key=lambda item: item["value"].split('#')[pkList2.index(columnName2)+1])
+        l2v = list(map(lambda item: item["value"].split('#')[pkList2.index(columnName2)+1], list2))
+        j1 = 0
+        j2 = 0
+        while j1 < len(list1) and j2 < len(list):
+            while l1v[j1] == l2v[j2]:
+                if result[i2] == ["-"]:
+                    result[i2].remove("-")
+                result[i2].append(list2[j2])
+                if result[i1] == ["-"]:
+                    result[i1].remove("-")
+                result[i1].append(list1[j1])
+                j1 += 1
+                j2 += 1
+            while l1v[j1] < l2v[j2]:
+                j1 += 1
+            while l1v[j2] < l2v[j1]:
+                j2 += 1
+
+    print(result)
+    return result
+
     # resvalues = list(filter(lambda rvi: rvi not in ["", " "], r["value"].split('#')))
     # respk = list(filter(lambda rvi: rvi not in ["", " "], r["pk"].split('#')))
 
